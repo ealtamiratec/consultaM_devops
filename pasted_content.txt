@@ -1,0 +1,303 @@
+Este laboratorio demuestra DevOps end-to-end 100% en local, reproducible y documentable, usando Kubernetes (Docker Desktop) como cluster de referencia, con IaC, CI/CD y observabilidad real, aunque la app sea “dummy”.
+
+Perfecto, el enunciado está muy bien planteado. Abajo te dejo cómo desarrollar el laboratorio paso a paso, pensado para alguien novato, pero con rigor técnico suficiente para un informe académico o demo profesional DevOps.
+
+🎯 Objetivo del laboratorio
+
+Demostrar DevOps end-to-end en un entorno controlado local, evidenciando:
+
+Infraestructura como Código (IaC)
+Terraform + Ansible
+
+CI/CD funcional
+GitHub Actions (build → test → package → deploy)
+
+Orquestación
+Kubernetes en Docker Desktop
+
+Observabilidad
+Prometheus + Grafana
+
+Resiliencia
+Fallo inducido + recuperación
+
+Métricas DORA en modo laboratorio
+
+Aplicación con arquitectura MVC (PHP + MySQL)
+
+🧱 Arquitectura general (visión mental)
+[Dev Laptop]
+   |
+   |-- GitHub Repo
+   |      |-- Terraform (infra)
+   |      |-- Ansible (config)
+   |      |-- App MVC PHP
+   |      |-- Dockerfile
+   |      |-- Helm / Manifests K8s
+   |      |-- GitHub Actions
+   |
+[Docker Desktop]
+   |
+   |-- Kubernetes Cluster (local)
+          |-- App consulta_medica (PHP)
+          |-- MySQL
+          |-- Prometheus
+          |-- Grafana
+
+
+Todo ocurre localmente, pero simula un entorno real DevOps.
+
+🧩 Paso 1: Preparar el entorno local
+1.1 Requisitos mínimos
+
+Instala en tu máquina:
+
+Docker Desktop (con Kubernetes habilitado)
+
+Git
+
+Terraform
+
+Ansible
+
+kubectl
+
+Helm
+
+Cuenta GitHub
+
+👉 Tip para novatos:
+Docker Desktop → Settings → Kubernetes → Enable Kubernetes ✔️
+
+📁 Paso 2: Estructura del repositorio
+
+Tu repositorio final puede verse así:
+
+consulta_medica-devops/
+├── app/                  # Tu app MVC (ya definida)
+├── docker/
+│   └── Dockerfile
+├── k8s/
+│   ├── app-deployment.yaml
+│   ├── app-service.yaml
+│   ├── mysql-deployment.yaml
+│   └── mysql-service.yaml
+├── observability/
+│   ├── prometheus/
+│   └── grafana/
+├── terraform/
+│   └── main.tf
+├── ansible/
+│   └── playbook.yml
+├── .github/workflows/
+│   └── cicd.yml
+└── README.md
+
+
+Esto demuestra trazabilidad y orden DevOps.
+
+🧠 Paso 3: La aplicación (dummy pero real)
+
+Tu app consulta_medica:
+
+PHP
+
+Arquitectura MVC
+
+Un login simple
+
+Un formulario de “consulta médica”
+
+Guarda datos en MySQL
+
+Expone una ruta /health
+
+👉 Importante:
+No importa que la app sea simple. Importa que sea desplegable, observable y recuperable.
+
+Ejemplo de endpoint health:
+
+echo json_encode(["status" => "UP"]);
+
+🐳 Paso 4: Contenerizar la aplicación
+4.1 Dockerfile (concepto)
+
+Apache + PHP
+
+Copia el código
+
+Expone puerto 80
+
+Esto permite:
+
+Build automático
+
+Imagen versionada
+
+Despliegue reproducible
+
+☸️ Paso 5: Kubernetes (entorno de laboratorio)
+5.1 Componentes mínimos en K8s
+
+Deployment de la app
+
+Service tipo ClusterIP
+
+Deployment MySQL
+
+Configuración por variables de entorno
+
+Ejemplo conceptual:
+
+replicas: 2 → alta disponibilidad
+
+Restart automático si el pod cae
+
+👉 Aquí ya demuestras resiliencia básica.
+
+🧱 Paso 6: Infraestructura como Código (IaC)
+6.1 Terraform (infraestructura)
+
+En local, Terraform no crea cloud real, pero declara el entorno:
+
+Namespace Kubernetes
+
+Recursos base
+
+Variables reutilizables
+
+👉 Esto demuestra mentalidad IaC, aunque sea local.
+
+6.2 Ansible (configuración)
+
+Ansible se usa para:
+
+Inicializar configuraciones
+
+Aplicar manifests
+
+Instalar Helm charts (Prometheus/Grafana)
+
+Terraform = qué existe
+Ansible = cómo se configura
+
+🔁 Paso 7: CI/CD con GitHub Actions
+7.1 Flujo del pipeline
+
+Cada git push ejecuta:
+
+Checkout del código
+
+Build de la imagen Docker
+
+Test básico (lint o health)
+
+Push imagen (local registry o Docker Hub)
+
+Deploy a Kubernetes
+
+Verificación de despliegue
+
+👉 Esto es el corazón DevOps del laboratorio.
+
+📊 Paso 8: Observabilidad
+8.1 Prometheus
+
+Recolecta:
+
+CPU
+
+Memoria
+
+Estado de pods
+
+Restart count
+
+8.2 Grafana
+
+Dashboard muestra:
+
+Pods UP/DOWN
+
+Uso de recursos
+
+Tiempo de respuesta
+
+👉 Incluye capturas de pantalla como evidencia.
+
+💥 Paso 9: Prueba de resiliencia (obligatoria)
+
+Elimina un pod manualmente:
+
+kubectl delete pod <pod-name>
+
+
+Observa:
+
+Kubernetes crea otro pod
+
+Prometheus registra el evento
+
+Grafana muestra la caída y recuperación
+
+📌 Esto valida MTTR y auto-healing.
+
+📈 Paso 10: Métricas DORA (modo laboratorio)
+
+Acláralo explícitamente en el informe:
+
+“Las métricas DORA se obtienen en un entorno de laboratorio controlado, no en producción real.”
+
+Cómo las mides:
+
+Lead Time for Changes
+⏱ Desde commit → pipeline exitoso (GitHub Actions)
+
+Deployment Frequency
+🔁 Número de despliegues durante el día de pruebas
+
+Change Failure Rate
+❌ Pipelines fallidos / total pipelines
+
+MTTR
+⏱ Desde fallo inducido → servicio restaurado
+
+📝 Paso 11: Documentación (clave académica)
+
+Tu README.md debe incluir:
+
+Objetivo del laboratorio
+
+Arquitectura
+
+Tecnologías usadas
+
+Pasos de ejecución
+
+Evidencias (logs, capturas)
+
+Métricas DORA
+
+Limitaciones del entorno
+
+Conclusiones
+
+👉 Esto cierra el ciclo DevOps completo.
+
+✅ Resultado final
+
+Con este laboratorio demuestras:
+
+DevOps real, no teórico
+
+CI/CD funcional
+
+Infraestructura reproducible
+
+Observabilidad
+
+Resiliencia
+
+Métricas DORA
+
+Buenas prácticas profesionales

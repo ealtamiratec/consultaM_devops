@@ -1,0 +1,70 @@
+---
+- name: Verificación post-despliegue (flujo único Terraform + Jenkins)
+  hosts: localhost
+  gather_facts: false
+  vars:
+    namespace: "consulta-medica"
+    required_deployments:
+      - jenkins
+      - consulta-medica
+      - prometheus
+      - grafana
+
+  tasks:
+    - name: Verificar conectividad con Kubernetes
+      command: kubectl cluster-info
+      register: cluster_info
+      changed_when: false
+
+    - name: Mostrar información del clúster
+      debug:
+        msg: "Cluster disponible"
+
+    - name: Verificar namespace
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Namespace
+        name: "{{ namespace }}"
+      register: ns_info
+
+    - name: Fallar si no existe el namespace esperado
+      fail:
+        msg: "No existe el namespace {{ namespace }}"
+      when: ns_info.resources | length == 0
+
+    - name: Consultar deployments requeridos
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ item }}"
+        namespace: "{{ namespace }}"
+      loop: "{{ required_deployments }}"
+      register: deployments_info
+
+    - name: Validar que todos los deployments existen
+      fail:
+        msg: "Falta el deployment {{ item.item }} en namespace {{ namespace }}"
+      loop: "{{ deployments_info.results }}"
+      when: item.resources | length == 0
+
+    - name: Validar readiness de deployments
+      fail:
+        msg: "Deployment {{ item.item }} no está listo"
+      loop: "{{ deployments_info.results }}"
+      when: >
+        item.resources | length > 0 and
+        (item.resources[0].status.readyReplicas | default(0)) <
+        (item.resources[0].status.replicas | default(1))
+
+    - name: Mostrar estado de servicios del namespace
+      command: kubectl get svc -n {{ namespace }}
+      register: svc_status
+      changed_when: false
+
+    - name: Resumen de servicios
+      debug:
+        var: svc_status.stdout_lines
+
+    - name: Mensaje final
+      debug:
+        msg: "Validación completada: infraestructura por Terraform y actualizaciones de app por Jenkins Pipeline."

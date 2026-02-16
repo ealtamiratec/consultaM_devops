@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consulta-medica
+  labels:
+    app: consulta-medica
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: consulta-medica
+  template:
+    metadata:
+      labels:
+        app: consulta-medica
+    spec:
+      containers:
+      - name: consulta-medica
+        image: consulta-medica:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: DB_HOST
+          value: "mysql"
+        - name: DB_DATABASE
+          value: "consulta_medica"
+        - name: DB_USER
+          value: "consulta_app"
+        - name: DB_PASSWORD
+          value: "TuContraseñaSegura"

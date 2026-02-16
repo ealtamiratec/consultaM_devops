@@ -1,0 +1,17 @@
+# Ejemplo de archivo terraform.tfvars
+# Copia este archivo a terraform.tfvars y personaliza los valores
+
+namespace                = "consulta-medica"
+app_name                 = "consulta-medica"
+app_image                = "tu-usuario-docker/consulta-medica:latest"
+app_replicas             = 2
+db_name                  = "consulta_medica"
+db_user                  = "consulta_app"
+db_password              = "TuContraseñaSegura"
+mysql_root_password      = "rootpassword"
+grafana_admin_password   = "admin"
+app_cpu_request          = "100m"
+app_cpu_limit            = "500m"
+app_memory_request       = "128Mi"
+app_memory_limit         = "512Mi"
+mysql_storage_size       = "10Gi"

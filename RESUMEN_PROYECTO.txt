@@ -1,0 +1,249 @@
+================================================================================
+LABORATORIO DEVOPS END-TO-END: SISTEMA DE CONSULTA MÉDICA
+================================================================================
+
+DESCRIPCIÓN GENERAL:
+Este proyecto implementa una solución DevOps completa y reproducible para la
+aplicación "Consulta Médica" (PHP + MySQL con arquitectura MVC). Demuestra
+prácticas profesionales de DevOps en un entorno local controlado.
+
+================================================================================
+COMPONENTES IMPLEMENTADOS:
+================================================================================
+
+1. INFRAESTRUCTURA COMO CÓDIGO (IaC)
+   - Terraform: Define toda la infraestructura de Kubernetes
+   - Archivos: terraform/main.tf, terraform/variables.tf
+   - Características:
+     * Namespace dedicado (consulta-medica)
+     * ConfigMaps para configuración
+     * Secrets para credenciales
+     * PersistentVolumeClaims para almacenamiento
+
+2. GESTIÓN DE CONFIGURACIÓN
+   - Ansible: Automatiza despliegue y configuración
+   - Archivo: ansible/playbook.yml
+   - Características:
+     * Despliegue de MySQL
+     * Despliegue de la aplicación
+     * Despliegue de Prometheus y Grafana
+     * Verificación de estado
+
+3. CONTENERIZACIÓN
+   - Docker: Empaqueta la aplicación
+   - Archivo: docker/Dockerfile
+   - Características:
+     * Imagen PHP 8.0 + Apache
+     * Extensiones necesarias (PDO, MySQL, mbstring)
+     * Permisos configurados correctamente
+
+4. ORQUESTACIÓN
+   - Kubernetes (Docker Desktop): Gestiona contenedores
+   - Archivos: k8s/*.yaml
+   - Recursos:
+     * Deployments: app, mysql, prometheus, grafana
+     * Services: LoadBalancer para acceso externo
+     * ConfigMaps y Secrets para configuración
+
+5. CI/CD
+   - GitHub Actions: Pipeline de integración y entrega continua
+   - Archivo: .github/workflows/cicd.yml
+   - Fases:
+     * Build: Construcción de imagen Docker
+     * Test: Pruebas básicas
+     * Security: Escaneo de vulnerabilidades
+     * Deploy: Despliegue a Kubernetes
+     * Observe: Recolección de métricas
+     * DORA: Cálculo de métricas DORA
+     * Notify: Notificación de resultados
+
+6. OBSERVABILIDAD
+   - Prometheus: Recolección de métricas
+   - Grafana: Visualización de dashboards
+   - Archivos: observability/prometheus/prometheus.yaml
+              observability/grafana/grafana-datasource.yaml
+   - Características:
+     * Monitoreo de pods
+     * Monitoreo de nodos
+     * Monitoreo de aplicación
+
+7. PRUEBAS DE RESILIENCIA
+   - Script: observability/resilience-test.sh
+   - Pruebas:
+     * Fallo de pod y auto-healing
+     * Escalado de réplicas
+     * Reinicio de deployment
+     * Análisis de logs y eventos
+     * Verificación de métricas
+
+8. DOCUMENTACIÓN
+   - README.md: Guía principal del proyecto
+   - QUICKSTART.md: Guía de inicio rápido
+   - ARCHITECTURE.md: Documentación técnica detallada
+   - setup.sh: Script de verificación de requisitos
+
+================================================================================
+ESTRUCTURA DEL PROYECTO:
+================================================================================
+
+consulta_medica-devops/
+├── .github/
+│   └── workflows/
+│       └── cicd.yml                 # Pipeline de GitHub Actions
+├── ansible/
+│   └── playbook.yml                 # Playbook de Ansible
+├── app/
+│   └── consulta_medica/             # Código fuente de la aplicación
+├── docker/
+│   └── Dockerfile                   # Dockerfile para la app
+├── k8s/
+│   ├── app-deployment.yaml
+│   ├── app-service.yaml
+│   ├── mysql-deployment.yaml
+│   ├── mysql-service.yaml
+│   ├── prometheus-deployment.yaml
+│   └── grafana-deployment.yaml
+├── observability/
+│   ├── prometheus/
+│   │   └── prometheus.yaml
+│   ├── grafana/
+│   │   └── grafana-datasource.yaml
+│   └── resilience-test.sh
+├── terraform/
+│   ├── main.tf
+│   ├── variables.tf
+│   └── terraform.tfvars.example
+├── ARCHITECTURE.md                  # Documentación técnica
+├── QUICKSTART.md                    # Guía rápida
+├── README.md                        # Guía principal
+├── setup.sh                         # Script de setup
+└── .gitignore
+
+================================================================================
+REQUISITOS PREVIOS:
+================================================================================
+
+- Docker Desktop (con Kubernetes habilitado)
+- Git
+- Terraform >= 1.0
+- Ansible >= 2.9
+- kubectl
+- Helm (opcional)
+- Cuenta de GitHub
+- Cuenta de Docker Hub
+
+================================================================================
+PASOS DE DESPLIEGUE RÁPIDO:
+================================================================================
+
+1. Clonar el repositorio:
+   git clone https://github.com/usuario/consulta_medica-devops.git
+   cd consulta_medica-devops
+
+2. Ejecutar setup:
+   chmod +x setup.sh
+   ./setup.sh
+
+3. Opción A - Usar Terraform:
+   cd terraform
+   terraform init
+   terraform apply
+
+4. Opción B - Usar Ansible:
+   ansible-playbook ansible/playbook.yml
+
+5. Opción C - Aplicar manifests manualmente:
+   kubectl create namespace consulta-medica
+   kubectl apply -f k8s/ -n consulta-medica
+
+6. Acceder a los servicios:
+   - Aplicación: http://localhost
+   - Prometheus: http://localhost:9090
+   - Grafana: http://localhost:3000 (admin/admin)
+
+================================================================================
+MÉTRICAS DORA IMPLEMENTADAS:
+================================================================================
+
+1. Lead Time for Changes
+   - Tiempo desde commit hasta despliegue exitoso
+   - Calculado automáticamente en el pipeline
+
+2. Deployment Frequency
+   - Número de despliegues en un período
+   - Contabilizado desde el historial de commits
+
+3. Change Failure Rate
+   - Porcentaje de despliegues fallidos
+   - Calculado desde los resultados del pipeline
+
+4. Mean Time to Recovery (MTTR)
+   - Tiempo promedio para recuperarse de un fallo
+   - Estimado basado en pruebas de resiliencia
+
+================================================================================
+PRUEBAS DE RESILIENCIA:
+================================================================================
+
+Ejecutar pruebas:
+chmod +x observability/resilience-test.sh
+./observability/resilience-test.sh
+
+Pruebas incluidas:
+- Eliminación de pods y verificación de auto-healing
+- Escalado de réplicas
+- Reinicio de deployments
+- Análisis de logs y eventos
+- Verificación de métricas en Prometheus
+- Verificación de dashboards en Grafana
+
+================================================================================
+CONFIGURACIÓN DE CI/CD:
+================================================================================
+
+Secretos requeridos en GitHub:
+1. DOCKER_USERNAME: Tu usuario de Docker Hub
+2. DOCKER_PASSWORD: Tu token de acceso de Docker Hub
+3. KUBE_CONFIG: Tu archivo ~/.kube/config codificado en Base64
+
+El pipeline se activa automáticamente en:
+- Push a rama main o develop
+- Pull requests a rama main o develop
+
+================================================================================
+LIMITACIONES DEL LABORATORIO:
+================================================================================
+
+1. Entorno local: No es un entorno de producción real
+2. Datos persistentes: Se pierden al reiniciar el clúster
+3. Métricas DORA simuladas: Calculadas en entorno controlado
+4. Sin alta disponibilidad: No hay redundancia de componentes críticos
+5. Sin backup automático: No hay mecanismos de backup
+
+================================================================================
+PRÓXIMAS MEJORAS:
+================================================================================
+
+1. Persistent Volumes para MySQL
+2. Ingress Controller para enrutamiento avanzado
+3. Network Policies para seguridad
+4. RBAC granular
+5. Helm Charts para empaquetamiento
+6. ArgoCD para GitOps
+7. Alertas y notificaciones en Prometheus
+8. Dashboards personalizados en Grafana
+
+================================================================================
+SOPORTE Y DOCUMENTACIÓN:
+================================================================================
+
+- README.md: Guía completa del proyecto
+- QUICKSTART.md: Inicio rápido (30 minutos)
+- ARCHITECTURE.md: Documentación técnica detallada
+- setup.sh: Verificación de requisitos
+
+================================================================================
+AUTOR: Manus AI
+FECHA: Febrero 2026
+VERSION: 1.0.0
+================================================================================
