@@ -820,7 +820,15 @@ resource "kubernetes_deployment" "jenkins" {
 
         container {
           name  = "jenkins"
-          image = "jenkins/jenkins:lts-jdk17"
+          image = "consulta-jenkins:local"
+          image_pull_policy = "IfNotPresent"
+
+          security_context {
+            run_as_user                = 0
+            run_as_group               = 0
+            privileged                 = true
+            allow_privilege_escalation = true
+          }
 
           port {
             container_port = 8080
@@ -832,7 +840,7 @@ resource "kubernetes_deployment" "jenkins" {
 
           env {
             name  = "JAVA_OPTS"
-            value = "-Xmx1024m -Xms512m"
+            value = "-Xmx1024m -Xms512m -Djenkins.install.runSetupWizard=false"
           }
 
           env {

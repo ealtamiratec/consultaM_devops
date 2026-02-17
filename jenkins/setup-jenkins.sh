@@ -1,233 +1,221 @@
 #!/bin/bash
 
-###############################################################################
-# Script de Configuración de Jenkins
-# Configura Jenkins automáticamente con los plugins y jobs necesarios
-###############################################################################
+set -euo pipefail
 
-set -e
-
-# Colores
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Funciones auxiliares
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
+JENKINS_URL="${JENKINS_URL:-http://localhost:8080}"
+JENKINS_USER="${JENKINS_USER:-admin}"
+JENKINS_PASSWORD="${JENKINS_PASSWORD:-admin}"
+JOB_NAME="${JOB_NAME:-consulta-medica-pipeline}"
+BRANCH_NAME="${BRANCH_NAME:-main}"
+SCM_POLL_SCHEDULE="${SCM_POLL_SCHEDULE:-H/2 * * * *}"
+GIT_REPO_URL="${GIT_REPO_URL:-}"
 
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
+CRUMB_HEADER=""
+COOKIE_JAR="/tmp/jenkins_cookie_$$.txt"
 
-# Variables
-JENKINS_URL="http://localhost:8080"
-JENKINS_USER="admin"
-JENKINS_PASSWORD="admin"
-NAMESPACE="consulta-medica"
-JENKINS_POD=""
-
-# Esperar a que Jenkins esté disponible
 wait_for_jenkins() {
-    log_info "Esperando a que Jenkins esté disponible..."
-    
-    local max_attempts=60
-    local attempt=0
-    
-    while [ $attempt -lt $max_attempts ]; do
-        if curl -s -o /dev/null -w "%{http_code}" "$JENKINS_URL/login" | grep -q "200"; then
-            log_success "Jenkins está disponible"
+    log_info "Esperando Jenkins en ${JENKINS_URL}..."
+    for _ in {1..90}; do
+        code="$(curl -s -o /dev/null -w "%{http_code}" "${JENKINS_URL}/login" || true)"
+        if [[ "$code" == "200" ]]; then
+            log_success "Jenkins disponible"
             return 0
         fi
-        
-        attempt=$((attempt + 1))
-        sleep 5
-        echo -n "."
+        sleep 2
     done
-    
-    log_error "Jenkins no está disponible después de $((max_attempts * 5)) segundos"
+    log_error "Jenkins no respondió a tiempo"
     return 1
 }
 
-# Obtener token de Jenkins
-get_jenkins_token() {
-    log_info "Obteniendo token de Jenkins..."
-    
-    # Intentar obtener el token inicial
-    local token_response=$(curl -s -X POST \
-        -u "$JENKINS_USER:$JENKINS_PASSWORD" \
-        "$JENKINS_URL/api/json" 2>/dev/null || echo "")
-    
-    if [ -z "$token_response" ]; then
-        log_warning "No se pudo obtener token, continuando sin autenticación"
+detect_origin_url() {
+    if [[ -n "$GIT_REPO_URL" ]]; then
+        log_info "Usando GIT_REPO_URL provista por entorno"
+        return
+    fi
+
+    if git -C "$PROJECT_ROOT" remote get-url origin >/dev/null 2>&1; then
+        GIT_REPO_URL="$(git -C "$PROJECT_ROOT" remote get-url origin)"
+        log_info "Origin detectado: ${GIT_REPO_URL}"
+    else
+        log_error "No existe remoto 'origin' en este repositorio."
+        echo ""
+        echo "Configura primero el remoto de GitHub y vuelve a correr este script:"
+        echo "  git remote add origin https://github.com/USUARIO/REPO.git"
+        echo ""
+        echo "Alternativa: exporta GIT_REPO_URL y vuelve a ejecutar."
         return 1
     fi
-    
-    log_success "Token obtenido"
+}
+
+normalize_repo_url() {
+    if [[ "$GIT_REPO_URL" =~ ^git@github.com:(.*)$ ]]; then
+        GIT_REPO_URL="https://github.com/${BASH_REMATCH[1]}"
+    fi
+    if [[ "$GIT_REPO_URL" =~ ^ssh://git@github.com/(.*)$ ]]; then
+        GIT_REPO_URL="https://github.com/${BASH_REMATCH[1]}"
+    fi
+}
+
+get_crumb() {
+    local crumb_line
+    crumb_line="$(curl -s -c "$COOKIE_JAR" -b "$COOKIE_JAR" -u "${JENKINS_USER}:${JENKINS_PASSWORD}" "${JENKINS_URL}/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,\":\",//crumb)" || true)"
+    if [[ -n "$crumb_line" ]] && [[ "$crumb_line" == *:* ]]; then
+        CRUMB_HEADER="$crumb_line"
+        log_success "Crumb obtenido"
+    else
+        log_warning "Crumb no disponible, se intentará sin crumb"
+        CRUMB_HEADER=""
+    fi
+}
+
+jenkins_api_post() {
+    local url="$1"
+    local data_file="${2:-}"
+    local content_type="${3:-application/xml}"
+    local http_code
+
+    if [[ -n "$data_file" ]]; then
+        if [[ -n "$CRUMB_HEADER" ]]; then
+            http_code="$(curl -sS -o /tmp/jenkins_api_post.out -w "%{http_code}" -c "$COOKIE_JAR" -b "$COOKIE_JAR" -u "${JENKINS_USER}:${JENKINS_PASSWORD}" -H "$CRUMB_HEADER" -H "Content-Type: ${content_type}" --data-binary "@$data_file" "$url")"
+        else
+            http_code="$(curl -sS -o /tmp/jenkins_api_post.out -w "%{http_code}" -c "$COOKIE_JAR" -b "$COOKIE_JAR" -u "${JENKINS_USER}:${JENKINS_PASSWORD}" -H "Content-Type: ${content_type}" --data-binary "@$data_file" "$url")"
+        fi
+    else
+        if [[ -n "$CRUMB_HEADER" ]]; then
+            http_code="$(curl -sS -o /tmp/jenkins_api_post.out -w "%{http_code}" -c "$COOKIE_JAR" -b "$COOKIE_JAR" -u "${JENKINS_USER}:${JENKINS_PASSWORD}" -H "$CRUMB_HEADER" -X POST "$url")"
+        else
+            http_code="$(curl -sS -o /tmp/jenkins_api_post.out -w "%{http_code}" -c "$COOKIE_JAR" -b "$COOKIE_JAR" -u "${JENKINS_USER}:${JENKINS_PASSWORD}" -X POST "$url")"
+        fi
+    fi
+
+    if [[ "$http_code" == "403" ]]; then
+        get_crumb
+        if [[ -n "$data_file" ]]; then
+            http_code="$(curl -sS -o /tmp/jenkins_api_post.out -w "%{http_code}" -c "$COOKIE_JAR" -b "$COOKIE_JAR" -u "${JENKINS_USER}:${JENKINS_PASSWORD}" -H "$CRUMB_HEADER" -H "Content-Type: ${content_type}" --data-binary "@$data_file" "$url")"
+        else
+            http_code="$(curl -sS -o /tmp/jenkins_api_post.out -w "%{http_code}" -c "$COOKIE_JAR" -b "$COOKIE_JAR" -u "${JENKINS_USER}:${JENKINS_PASSWORD}" -H "$CRUMB_HEADER" -X POST "$url")"
+        fi
+    fi
+
+    if [[ "$http_code" != 2* && "$http_code" != "302" && "$http_code" != "201" ]]; then
+        log_error "POST Jenkins falló (${http_code}) en ${url}"
+        head -c 500 /tmp/jenkins_api_post.out || true
+        echo ""
+        return 1
+    fi
+
     return 0
 }
 
-# Instalar plugins necesarios
-install_plugins() {
-    log_info "Instalando plugins necesarios..."
-    
-    local plugins=(
-        "git"
-        "pipeline"
-        "kubernetes"
-        "docker-plugin"
-        "docker-workflow"
-        "credentials"
-        "credentials-binding"
-    )
-    
-    for plugin in "${plugins[@]}"; do
-        log_info "Instalando plugin: $plugin"
-        # Nota: En un entorno real, usarías la Jenkins CLI
-        # Por ahora solo registramos que se intentó
-    done
-    
-    log_success "Plugins instalados"
-}
+create_or_update_pipeline_job() {
+    log_info "Creando/actualizando Pipeline job ${JOB_NAME}..."
 
-# Crear credenciales
-create_credentials() {
-    log_info "Creando credenciales..."
-    
-    # Credenciales de Docker Registry
-    log_info "Creando credenciales de Docker Registry..."
-    
-    # Credenciales de Kubernetes
-    log_info "Creando credenciales de Kubernetes..."
-    
-    log_success "Credenciales creadas"
-}
+    local tmp_xml
+    tmp_xml="$(mktemp)"
 
-# Crear job de pipeline
-create_pipeline_job() {
-    log_info "Creando job de pipeline..."
-    
-    local job_name="consulta-medica-pipeline"
-    local job_config='<?xml version="1.0" encoding="UTF-8"?>
-<org.jenkinsci.plugins.workflow.job.WorkflowJob plugin="workflow-job@1180.v04c4e75dce43">
+    cat > "$tmp_xml" <<EOF
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job">
   <actions/>
-  <description>Pipeline CI/CD para Consulta Médica</description>
+  <description>Pipeline CI/CD automático para rama ${BRANCH_NAME} (GitHub + Jenkins + Kubernetes)</description>
   <keepDependencies>false</keepDependencies>
-  <properties>
-    <org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
-      <triggers/>
-    </org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
-  </properties>
-  <definition class="org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition" plugin="workflow-cps@2.92">
-    <scm class="hudson.plugins.git.GitSCM" plugin="git@4.10.2">
+  <properties/>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition" plugin="workflow-cps">
+    <scm class="hudson.plugins.git.GitSCM" plugin="git">
       <configVersion>2</configVersion>
       <userRemoteConfigs>
         <hudson.plugins.git.UserRemoteConfig>
-          <url>.</url>
+          <url>${GIT_REPO_URL}</url>
         </hudson.plugins.git.UserRemoteConfig>
       </userRemoteConfigs>
       <branches>
         <hudson.plugins.git.BranchSpec>
-          <name>*/main</name>
+          <name>*/${BRANCH_NAME}</name>
         </hudson.plugins.git.BranchSpec>
       </branches>
       <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
-      <submoduleCfg class="list"/>
+      <submoduleCfg class="empty-list"/>
       <extensions/>
     </scm>
     <scriptPath>Jenkinsfile</scriptPath>
-    <lightweight>true</lightweight>
+    <lightweight>false</lightweight>
   </definition>
-  <triggers/>
+  <triggers>
+    <hudson.triggers.SCMTrigger>
+      <spec>${SCM_POLL_SCHEDULE}</spec>
+      <ignorePostCommitHooks>false</ignorePostCommitHooks>
+    </hudson.triggers.SCMTrigger>
+  </triggers>
   <disabled>false</disabled>
-</org.jenkinsci.plugins.workflow.job.WorkflowJob>'
-    
-    log_info "Job de pipeline creado: $job_name"
-    log_success "Configuración de pipeline completada"
-}
+</flow-definition>
+EOF
 
-# Configurar sistema
-configure_system() {
-    log_info "Configurando sistema de Jenkins..."
-    
-    # Configurar número de ejecutores
-    log_info "Configurando ejecutores..."
-    
-    # Configurar ubicación de Jenkins
-    log_info "Configurando ubicación..."
-    
-    log_success "Sistema configurado"
-}
-
-# Verificar instalación
-verify_installation() {
-    log_info "Verificando instalación..."
-    
-    local jenkins_version=$(curl -s -I "$JENKINS_URL" | grep -i "X-Jenkins:" | awk '{print $2}' | tr -d '\r')
-    
-    if [ -z "$jenkins_version" ]; then
-        log_warning "No se pudo obtener versión de Jenkins"
+    local code
+    code="$(curl -s -c "$COOKIE_JAR" -b "$COOKIE_JAR" -o /dev/null -w "%{http_code}" -u "${JENKINS_USER}:${JENKINS_PASSWORD}" "${JENKINS_URL}/job/${JOB_NAME}/api/json" || true)"
+    if [[ "$code" == "200" ]]; then
+        jenkins_api_post "${JENKINS_URL}/job/${JOB_NAME}/config.xml" "$tmp_xml"
+        log_success "Pipeline job actualizado"
     else
-        log_success "Jenkins versión: $jenkins_version"
+        jenkins_api_post "${JENKINS_URL}/createItem?name=${JOB_NAME}" "$tmp_xml"
+        log_success "Pipeline job creado"
     fi
-    
-    # Verificar que el job existe
-    log_info "Verificando jobs..."
-    
-    log_success "Verificación completada"
+
+    local verify_code
+    verify_code="$(curl -s -c "$COOKIE_JAR" -b "$COOKIE_JAR" -o /tmp/jenkins_job_verify.out -w "%{http_code}" -u "${JENKINS_USER}:${JENKINS_PASSWORD}" "${JENKINS_URL}/job/${JOB_NAME}/api/json" || true)"
+    if [[ "$verify_code" != "200" ]]; then
+        log_error "El job ${JOB_NAME} no quedó disponible (HTTP ${verify_code})"
+        head -c 500 /tmp/jenkins_job_verify.out || true
+        echo ""
+        rm -f "$tmp_xml"
+        return 1
+    fi
+
+    rm -f "$tmp_xml"
 }
 
-# Función principal
+trigger_first_build() {
+    log_info "Disparando build inicial para validar pipeline..."
+    jenkins_api_post "${JENKINS_URL}/job/${JOB_NAME}/build" >/dev/null
+    log_success "Build disparado"
+}
+
 main() {
     echo ""
     echo "╔════════════════════════════════════════════════════════════╗"
-    echo "║   SETUP - Jenkins para Laboratorio DevOps                 ║"
-    echo "║   Sistema de Consulta Médica Externa                      ║"
+    echo "║   SETUP Jenkins CI/CD automático (main)                   ║"
     echo "╚════════════════════════════════════════════════════════════╝"
     echo ""
-    
-    log_info "Iniciando configuración de Jenkins..."
-    
-    # Esperar a Jenkins
-    wait_for_jenkins || exit 1
-    
-    # Obtener token
-    get_jenkins_token || log_warning "Continuando sin token"
-    
-    # Instalar plugins
-    install_plugins
-    
-    # Crear credenciales
-    create_credentials
-    
-    # Crear pipeline job
-    create_pipeline_job
-    
-    # Configurar sistema
-    configure_system
-    
-    # Verificar
-    verify_installation
-    
+
+    wait_for_jenkins
+    detect_origin_url
+    normalize_repo_url
+    get_crumb
+    create_or_update_pipeline_job
+    trigger_first_build
+
     echo ""
-    log_success "Configuración de Jenkins completada"
-    echo ""
-    echo "Accede a Jenkins en: $JENKINS_URL"
-    echo "Usuario: $JENKINS_USER"
-    echo "Contraseña: $JENKINS_PASSWORD"
+    log_success "Jenkins listo para CI/CD automático"
+    echo "Repo: ${GIT_REPO_URL}"
+    echo "Rama: ${BRANCH_NAME}"
+    echo "Polling SCM: ${SCM_POLL_SCHEDULE}"
+    echo "Job: ${JENKINS_URL}/job/${JOB_NAME}/"
     echo ""
 }
 
-# Ejecutar
+trap 'rm -f "$COOKIE_JAR" /tmp/jenkins_api_post.out /tmp/jenkins_job_verify.out 2>/dev/null || true' EXIT
+
 main "$@"

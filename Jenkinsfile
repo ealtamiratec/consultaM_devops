@@ -1,11 +1,15 @@
 pipeline {
     agent any
 
+    triggers {
+        pollSCM('H/2 * * * *')
+    }
+
     environment {
-        REGISTRY = 'localhost:5000'
         IMAGE_NAME = 'consulta-medica'
         IMAGE_TAG = "${BUILD_NUMBER}"
-        FULL_IMAGE = "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+        FULL_IMAGE = "${IMAGE_NAME}:${IMAGE_TAG}"
+        LATEST_IMAGE = "${IMAGE_NAME}:latest"
         NAMESPACE = 'consulta-medica'
     }
 
@@ -47,7 +51,10 @@ pipeline {
                     terraform import kubernetes_deployment.app "${NAMESPACE}/consulta-medica" >/dev/null 2>&1 || true
                     terraform import kubernetes_service.docker_registry "${NAMESPACE}/docker-registry" >/dev/null 2>&1 || true
 
-                    terraform apply -auto-approve -input=false -parallelism=5
+                                        terraform apply -auto-approve -input=false -parallelism=5 \
+                                            -var='kubeconfig_path=' \
+                                            -var='app_replicas=1' \
+                                            -var='app_image=consulta-medica:latest'
                 '''
             }
         }
@@ -57,18 +64,16 @@ pipeline {
                 sh '''
                     set -e
                     docker build -t ${FULL_IMAGE} -f docker/Dockerfile .
-                    docker tag ${FULL_IMAGE} ${REGISTRY}/${IMAGE_NAME}:latest
+                    docker tag ${FULL_IMAGE} ${LATEST_IMAGE}
                 '''
             }
         }
 
-        stage('Push a registro local') {
+        stage('Registro local (omitido en modo local)') {
             steps {
                 sh '''
-                    set -e
-                    curl -fsS http://${REGISTRY}/v2/ > /dev/null
-                    docker push ${FULL_IMAGE}
-                    docker push ${REGISTRY}/${IMAGE_NAME}:latest
+                    echo "Modo local: se omite push al registry."
+                    echo "Se usará imagen local ${LATEST_IMAGE} con imagePullPolicy IfNotPresent."
                 '''
             }
         }
@@ -77,9 +82,11 @@ pipeline {
             steps {
                 sh '''
                     set -e
+                    kubectl -n ${NAMESPACE} patch deployment consulta-medica --type=json \
+                      -p='[{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"IfNotPresent"}]' || true
                     kubectl -n ${NAMESPACE} set image deployment/consulta-medica \
-                        consulta-medica=${FULL_IMAGE}
-                    kubectl -n ${NAMESPACE} scale deployment/consulta-medica --replicas=2
+                        consulta-medica=${LATEST_IMAGE}
+                    kubectl -n ${NAMESPACE} scale deployment/consulta-medica --replicas=1
                     kubectl -n ${NAMESPACE} rollout status deployment/consulta-medica --timeout=5m
                 '''
             }
