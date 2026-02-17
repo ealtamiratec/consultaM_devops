@@ -6,14 +6,16 @@ LABEL maintainer="DevOps Team"
 LABEL description="Aplicación de Consulta Médica - PHP + Apache"
 LABEL version="1.0.0"
 
-# Instalar extensiones de PHP necesarias
-RUN docker-php-ext-install pdo pdo_mysql mbstring
-
-# Instalar utilidades adicionales
+# Instalar dependencias del sistema para compilar extensiones PHP
 RUN apt-get update && apt-get install -y \
+    libonig-dev \
+    pkg-config \
     curl \
     git \
     && rm -rf /var/lib/apt/lists/*
+
+# Instalar extensiones de PHP necesarias
+RUN docker-php-ext-install pdo pdo_mysql mbstring
 
 # Copiar el código de la aplicación al directorio de trabajo de Apache
 COPY ./app/consulta_medica /var/www/html/

@@ -47,16 +47,6 @@ spec:
       containers:
       - name: jenkins
         image: jenkins/jenkins:lts-jdk17
-        securityContext:
-          runAsUser: 0
-        command: ["/bin/bash", "-lc"]
-        args:
-          - |
-            apt-get update && apt-get install -y curl unzip docker.io && \
-            curl -fsSLo /tmp/terraform.zip https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip && \
-            unzip -o /tmp/terraform.zip -d /usr/local/bin && chmod +x /usr/local/bin/terraform && \
-            curl -fsSLo /usr/local/bin/kubectl https://dl.k8s.io/release/v1.29.1/bin/linux/amd64/kubectl && chmod +x /usr/local/bin/kubectl && \
-            /usr/bin/tini -- /usr/local/bin/jenkins.sh
         ports:
         - containerPort: 8080
           name: http

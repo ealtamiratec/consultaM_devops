@@ -1,0 +1,1970 @@
+{
+  "version": 4,
+  "terraform_version": "1.14.4",
+  "serial": 136,
+  "lineage": "79b5062a-2cd9-6687-d4c7-2eb90b9bbeb4",
+  "outputs": {
+    "access_urls": {
+      "value": {
+        "app": "http://localhost",
+        "grafana": "http://localhost:3000",
+        "jenkins": "http://localhost:8080",
+        "prometheus": "http://localhost:9090",
+        "registry": "http://localhost:5000"
+      },
+      "type": [
+        "object",
+        {
+          "app": "string",
+          "grafana": "string",
+          "jenkins": "string",
+          "prometheus": "string",
+          "registry": "string"
+        }
+      ]
+    },
+    "app_image_default": {
+      "value": "localhost:5000/consulta-medica:latest",
+      "type": "string"
+    },
+    "namespace": {
+      "value": "consulta-medica",
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "mode": "managed",
+      "type": "kubernetes_config_map",
+      "name": "app_config",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "binary_data": null,
+            "data": {
+              "APP_BASE_PATH": "",
+              "APP_ENV": "production",
+              "APP_URL": "http://localhost",
+              "DB_DATABASE": "consulta_medica",
+              "DB_HOST": "mysql",
+              "DB_PORT": "3306",
+              "DB_USER": "consulta_app"
+            },
+            "id": "consulta-medica/app-config",
+            "immutable": false,
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 0,
+                "labels": null,
+                "name": "app-config",
+                "namespace": "consulta-medica",
+                "resource_version": "1157",
+                "uid": "0b1e5b11-df9f-4303-bd88-6e05c948b95d"
+              }
+            ]
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": "v1",
+            "kind": "ConfigMap",
+            "name": "app-config",
+            "namespace": "consulta-medica"
+          },
+          "private": "bnVsbA==",
+          "dependencies": [
+            "kubernetes_namespace.consulta_medica"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_config_map",
+      "name": "grafana_datasource",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "binary_data": null,
+            "data": {
+              "prometheus.yaml": "apiVersion: 1\ndatasources:\n  - name: Prometheus\n    type: prometheus\n    access: proxy\n    url: http://prometheus:9090\n    isDefault: true\n"
+            },
+            "id": "consulta-medica/grafana-datasource",
+            "immutable": false,
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 0,
+                "labels": null,
+                "name": "grafana-datasource",
+                "namespace": "consulta-medica",
+                "resource_version": "1706",
+                "uid": "b3bc22e1-9f8b-4172-93cd-eeb0a58ee8ca"
+              }
+            ]
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": "v1",
+            "kind": "ConfigMap",
+            "name": "grafana-datasource",
+            "namespace": "consulta-medica"
+          },
+          "private": "bnVsbA==",
+          "dependencies": [
+            "kubernetes_namespace.consulta_medica"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_config_map",
+      "name": "prometheus_config",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "binary_data": null,
+            "data": {
+              "prometheus.yml": "global:\n  scrape_interval: 15s\n  evaluation_interval: 15s\n\nscrape_configs:\n  - job_name: 'kubernetes-apiservers'\n    kubernetes_sd_configs:\n      - role: endpoints\n    scheme: https\n    tls_config:\n      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt\n    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token\n    relabel_configs:\n      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]\n        action: keep\n        regex: default;kubernetes;https\n\n  - job_name: 'kubernetes-nodes'\n    kubernetes_sd_configs:\n      - role: node\n    scheme: https\n    tls_config:\n      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt\n    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token\n    relabel_configs:\n      - action: labelmap\n        regex: __meta_kubernetes_node_label_(.+)\n\n  - job_name: 'kubernetes-pods'\n    kubernetes_sd_configs:\n      - role: pod\n    relabel_configs:\n      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]\n        action: keep\n        regex: 'true'\n      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]\n        action: replace\n        target_label: __metrics_path__\n        regex: (.+)\n      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]\n        action: replace\n        regex: ([^:]+)(?::\\d+)?;(\\d+)\n        replacement: $1:$2\n        target_label: __address__\n      - action: labelmap\n        regex: __meta_kubernetes_pod_label_(.+)\n      - source_labels: [__meta_kubernetes_namespace]\n        action: replace\n        target_label: kubernetes_namespace\n      - source_labels: [__meta_kubernetes_pod_name]\n        action: replace\n        target_label: kubernetes_pod_name\n\n  - job_name: 'consulta-medica-service'\n    static_configs:\n      - targets: ['consulta-medica.consulta-medica.svc.cluster.local:80']\n"
+            },
+            "id": "consulta-medica/prometheus-config",
+            "immutable": false,
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 0,
+                "labels": null,
+                "name": "prometheus-config",
+                "namespace": "consulta-medica",
+                "resource_version": "1707",
+                "uid": "cb3b38f1-0362-4b21-a170-881be553d603"
+              }
+            ]
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": "v1",
+            "kind": "ConfigMap",
+            "name": "prometheus-config",
+            "namespace": "consulta-medica"
+          },
+          "private": "bnVsbA==",
+          "dependencies": [
+            "kubernetes_namespace.consulta_medica"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_deployment",
+      "name": "docker_registry",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "id": "consulta-medica/docker-registry",
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 1,
+                "labels": {
+                  "app": "docker-registry"
+                },
+                "name": "docker-registry",
+                "namespace": "consulta-medica",
+                "resource_version": "1830",
+                "uid": "f4a1c006-94d8-4c12-90de-b210f838cad5"
+              }
+            ],
+            "spec": [
+              {
+                "min_ready_seconds": 0,
+                "paused": false,
+                "progress_deadline_seconds": 600,
+                "replicas": "1",
+                "revision_history_limit": 10,
+                "selector": [
+                  {
+                    "match_expressions": [],
+                    "match_labels": {
+                      "app": "docker-registry"
+                    }
+                  }
+                ],
+                "strategy": [
+                  {
+                    "rolling_update": [
+                      {
+                        "max_surge": "25%",
+                        "max_unavailable": "25%"
+                      }
+                    ],
+                    "type": "RollingUpdate"
+                  }
+                ],
+                "template": [
+                  {
+                    "metadata": [
+                      {
+                        "annotations": null,
+                        "generate_name": "",
+                        "generation": 0,
+                        "labels": {
+                          "app": "docker-registry"
+                        },
+                        "name": "",
+                        "namespace": "",
+                        "resource_version": "",
+                        "uid": ""
+                      }
+                    ],
+                    "spec": [
+                      {
+                        "active_deadline_seconds": 0,
+                        "affinity": [],
+                        "automount_service_account_token": true,
+                        "container": [
+                          {
+                            "args": null,
+                            "command": null,
+                            "env": [
+                              {
+                                "name": "REGISTRY_STORAGE_DELETE_ENABLED",
+                                "value": "true",
+                                "value_from": []
+                              }
+                            ],
+                            "env_from": [],
+                            "image": "registry:2",
+                            "image_pull_policy": "IfNotPresent",
+                            "lifecycle": [],
+                            "liveness_probe": [],
+                            "name": "docker-registry",
+                            "port": [
+                              {
+                                "container_port": 5000,
+                                "host_ip": "",
+                                "host_port": 0,
+                                "name": "",
+                                "protocol": "TCP"
+                              }
+                            ],
+                            "readiness_probe": [],
+                            "resources": [
+                              {
+                                "limits": {},
+                                "requests": {}
+                              }
+                            ],
+                            "security_context": [],
+                            "startup_probe": [],
+                            "stdin": false,
+                            "stdin_once": false,
+                            "termination_message_path": "/dev/termination-log",
+                            "termination_message_policy": "File",
+                            "tty": false,
+                            "volume_device": [],
+                            "volume_mount": [
+                              {
+                                "mount_path": "/var/lib/registry",
+                                "mount_propagation": "None",
+                                "name": "registry-storage",
+                                "read_only": false,
+                                "sub_path": "",
+                                "sub_path_expr": ""
+                              }
+                            ],
+                            "working_dir": ""
+                          }
+                        ],
+                        "dns_config": [],
+                        "dns_policy": "ClusterFirst",
+                        "enable_service_links": true,
+                        "host_aliases": [],
+                        "host_ipc": false,
+                        "host_network": false,
+                        "host_pid": false,
+                        "hostname": "",
+                        "image_pull_secrets": [],
+                        "init_container": [],
+                        "node_name": "",
+                        "node_selector": null,
+                        "os": [],
+                        "priority_class_name": "",
+                        "readiness_gate": [],
+                        "restart_policy": "Always",
+                        "runtime_class_name": "",
+                        "scheduler_name": "default-scheduler",
+                        "security_context": [],
+                        "service_account_name": "",
+                        "share_process_namespace": false,
+                        "subdomain": "",
+                        "termination_grace_period_seconds": 30,
+                        "toleration": [],
+                        "topology_spread_constraint": [],
+                        "volume": [
+                          {
+                            "aws_elastic_block_store": [],
+                            "azure_disk": [],
+                            "azure_file": [],
+                            "ceph_fs": [],
+                            "cinder": [],
+                            "config_map": [],
+                            "csi": [],
+                            "downward_api": [],
+                            "empty_dir": [],
+                            "ephemeral": [],
+                            "fc": [],
+                            "flex_volume": [],
+                            "flocker": [],
+                            "gce_persistent_disk": [],
+                            "git_repo": [],
+                            "glusterfs": [],
+                            "host_path": [],
+                            "iscsi": [],
+                            "local": [],
+                            "name": "registry-storage",
+                            "nfs": [],
+                            "persistent_volume_claim": [
+                              {
+                                "claim_name": "docker-registry-pvc",
+                                "read_only": false
+                              }
+                            ],
+                            "photon_persistent_disk": [],
+                            "projected": [],
+                            "quobyte": [],
+                            "rbd": [],
+                            "secret": [],
+                            "vsphere_volume": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "timeouts": null,
+            "wait_for_rollout": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": "apps/v1",
+            "kind": "Deployment",
+            "name": "docker-registry",
+            "namespace": "consulta-medica"
+          },
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6NjAwMDAwMDAwMDAwLCJ1cGRhdGUiOjYwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMSJ9",
+          "dependencies": [
+            "kubernetes_namespace.consulta_medica",
+            "kubernetes_persistent_volume_claim.registry_pvc"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_deployment",
+      "name": "grafana",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "id": "consulta-medica/grafana",
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 1,
+                "labels": {
+                  "app": "grafana"
+                },
+                "name": "grafana",
+                "namespace": "consulta-medica",
+                "resource_version": "1922",
+                "uid": "5c0b9130-b73e-4b0f-abb0-15d335d36575"
+              }
+            ],
+            "spec": [
+              {
+                "min_ready_seconds": 0,
+                "paused": false,
+                "progress_deadline_seconds": 600,
+                "replicas": "1",
+                "revision_history_limit": 10,
+                "selector": [
+                  {
+                    "match_expressions": [],
+                    "match_labels": {
+                      "app": "grafana"
+                    }
+                  }
+                ],
+                "strategy": [
+                  {
+                    "rolling_update": [
+                      {
+                        "max_surge": "25%",
+                        "max_unavailable": "25%"
+                      }
+                    ],
+                    "type": "RollingUpdate"
+                  }
+                ],
+                "template": [
+                  {
+                    "metadata": [
+                      {
+                        "annotations": null,
+                        "generate_name": "",
+                        "generation": 0,
+                        "labels": {
+                          "app": "grafana"
+                        },
+                        "name": "",
+                        "namespace": "",
+                        "resource_version": "",
+                        "uid": ""
+                      }
+                    ],
+                    "spec": [
+                      {
+                        "active_deadline_seconds": 0,
+                        "affinity": [],
+                        "automount_service_account_token": true,
+                        "container": [
+                          {
+                            "args": null,
+                            "command": null,
+                            "env": [
+                              {
+                                "name": "GF_SECURITY_ADMIN_PASSWORD",
+                                "value": "admin",
+                                "value_from": []
+                              }
+                            ],
+                            "env_from": [],
+                            "image": "grafana/grafana:latest",
+                            "image_pull_policy": "Always",
+                            "lifecycle": [],
+                            "liveness_probe": [],
+                            "name": "grafana",
+                            "port": [
+                              {
+                                "container_port": 3000,
+                                "host_ip": "",
+                                "host_port": 0,
+                                "name": "",
+                                "protocol": "TCP"
+                              }
+                            ],
+                            "readiness_probe": [],
+                            "resources": [
+                              {
+                                "limits": {},
+                                "requests": {}
+                              }
+                            ],
+                            "security_context": [],
+                            "startup_probe": [],
+                            "stdin": false,
+                            "stdin_once": false,
+                            "termination_message_path": "/dev/termination-log",
+                            "termination_message_policy": "File",
+                            "tty": false,
+                            "volume_device": [],
+                            "volume_mount": [
+                              {
+                                "mount_path": "/etc/grafana/provisioning/datasources/prometheus.yaml",
+                                "mount_propagation": "None",
+                                "name": "grafana-datasource",
+                                "read_only": false,
+                                "sub_path": "prometheus.yaml",
+                                "sub_path_expr": ""
+                              }
+                            ],
+                            "working_dir": ""
+                          }
+                        ],
+                        "dns_config": [],
+                        "dns_policy": "ClusterFirst",
+                        "enable_service_links": true,
+                        "host_aliases": [],
+                        "host_ipc": false,
+                        "host_network": false,
+                        "host_pid": false,
+                        "hostname": "",
+                        "image_pull_secrets": [],
+                        "init_container": [],
+                        "node_name": "",
+                        "node_selector": null,
+                        "os": [],
+                        "priority_class_name": "",
+                        "readiness_gate": [],
+                        "restart_policy": "Always",
+                        "runtime_class_name": "",
+                        "scheduler_name": "default-scheduler",
+                        "security_context": [],
+                        "service_account_name": "",
+                        "share_process_namespace": false,
+                        "subdomain": "",
+                        "termination_grace_period_seconds": 30,
+                        "toleration": [],
+                        "topology_spread_constraint": [],
+                        "volume": [
+                          {
+                            "aws_elastic_block_store": [],
+                            "azure_disk": [],
+                            "azure_file": [],
+                            "ceph_fs": [],
+                            "cinder": [],
+                            "config_map": [
+                              {
+                                "default_mode": "0644",
+                                "items": [],
+                                "name": "grafana-datasource",
+                                "optional": false
+                              }
+                            ],
+                            "csi": [],
+                            "downward_api": [],
+                            "empty_dir": [],
+                            "ephemeral": [],
+                            "fc": [],
+                            "flex_volume": [],
+                            "flocker": [],
+                            "gce_persistent_disk": [],
+                            "git_repo": [],
+                            "glusterfs": [],
+                            "host_path": [],
+                            "iscsi": [],
+                            "local": [],
+                            "name": "grafana-datasource",
+                            "nfs": [],
+                            "persistent_volume_claim": [],
+                            "photon_persistent_disk": [],
+                            "projected": [],
+                            "quobyte": [],
+                            "rbd": [],
+                            "secret": [],
+                            "vsphere_volume": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "timeouts": null,
+            "wait_for_rollout": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": "apps/v1",
+            "kind": "Deployment",
+            "name": "grafana",
+            "namespace": "consulta-medica"
+          },
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6NjAwMDAwMDAwMDAwLCJ1cGRhdGUiOjYwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMSJ9",
+          "dependencies": [
+            "kubernetes_config_map.grafana_datasource",
+            "kubernetes_namespace.consulta_medica"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_deployment",
+      "name": "jenkins",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "id": "consulta-medica/jenkins",
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 1,
+                "labels": {
+                  "app": "jenkins"
+                },
+                "name": "jenkins",
+                "namespace": "consulta-medica",
+                "resource_version": "1819",
+                "uid": "e32c2d78-2c06-44f7-ad01-9b6557be4a1f"
+              }
+            ],
+            "spec": [
+              {
+                "min_ready_seconds": 0,
+                "paused": false,
+                "progress_deadline_seconds": 600,
+                "replicas": "1",
+                "revision_history_limit": 10,
+                "selector": [
+                  {
+                    "match_expressions": [],
+                    "match_labels": {
+                      "app": "jenkins"
+                    }
+                  }
+                ],
+                "strategy": [
+                  {
+                    "rolling_update": [
+                      {
+                        "max_surge": "25%",
+                        "max_unavailable": "25%"
+                      }
+                    ],
+                    "type": "RollingUpdate"
+                  }
+                ],
+                "template": [
+                  {
+                    "metadata": [
+                      {
+                        "annotations": null,
+                        "generate_name": "",
+                        "generation": 0,
+                        "labels": {
+                          "app": "jenkins"
+                        },
+                        "name": "",
+                        "namespace": "",
+                        "resource_version": "",
+                        "uid": ""
+                      }
+                    ],
+                    "spec": [
+                      {
+                        "active_deadline_seconds": 0,
+                        "affinity": [],
+                        "automount_service_account_token": true,
+                        "container": [
+                          {
+                            "args": null,
+                            "command": null,
+                            "env": [
+                              {
+                                "name": "JAVA_OPTS",
+                                "value": "-Xmx1024m -Xms512m",
+                                "value_from": []
+                              },
+                              {
+                                "name": "JENKINS_OPTS",
+                                "value": "--argumentsRealm.passwd.admin=admin --argumentsRealm.roles.admin=admin",
+                                "value_from": []
+                              }
+                            ],
+                            "env_from": [],
+                            "image": "jenkins/jenkins:lts-jdk17",
+                            "image_pull_policy": "IfNotPresent",
+                            "lifecycle": [],
+                            "liveness_probe": [],
+                            "name": "jenkins",
+                            "port": [
+                              {
+                                "container_port": 8080,
+                                "host_ip": "",
+                                "host_port": 0,
+                                "name": "",
+                                "protocol": "TCP"
+                              },
+                              {
+                                "container_port": 50000,
+                                "host_ip": "",
+                                "host_port": 0,
+                                "name": "",
+                                "protocol": "TCP"
+                              }
+                            ],
+                            "readiness_probe": [],
+                            "resources": [
+                              {
+                                "limits": {},
+                                "requests": {}
+                              }
+                            ],
+                            "security_context": [],
+                            "startup_probe": [],
+                            "stdin": false,
+                            "stdin_once": false,
+                            "termination_message_path": "/dev/termination-log",
+                            "termination_message_policy": "File",
+                            "tty": false,
+                            "volume_device": [],
+                            "volume_mount": [
+                              {
+                                "mount_path": "/var/jenkins_home",
+                                "mount_propagation": "None",
+                                "name": "jenkins-home",
+                                "read_only": false,
+                                "sub_path": "",
+                                "sub_path_expr": ""
+                              },
+                              {
+                                "mount_path": "/var/run/docker.sock",
+                                "mount_propagation": "None",
+                                "name": "docker-sock",
+                                "read_only": false,
+                                "sub_path": "",
+                                "sub_path_expr": ""
+                              }
+                            ],
+                            "working_dir": ""
+                          }
+                        ],
+                        "dns_config": [],
+                        "dns_policy": "ClusterFirst",
+                        "enable_service_links": true,
+                        "host_aliases": [],
+                        "host_ipc": false,
+                        "host_network": false,
+                        "host_pid": false,
+                        "hostname": "",
+                        "image_pull_secrets": [],
+                        "init_container": [],
+                        "node_name": "",
+                        "node_selector": null,
+                        "os": [],
+                        "priority_class_name": "",
+                        "readiness_gate": [],
+                        "restart_policy": "Always",
+                        "runtime_class_name": "",
+                        "scheduler_name": "default-scheduler",
+                        "security_context": [],
+                        "service_account_name": "jenkins",
+                        "share_process_namespace": false,
+                        "subdomain": "",
+                        "termination_grace_period_seconds": 30,
+                        "toleration": [],
+                        "topology_spread_constraint": [],
+                        "volume": [
+                          {
+                            "aws_elastic_block_store": [],
+                            "azure_disk": [],
+                            "azure_file": [],
+                            "ceph_fs": [],
+                            "cinder": [],
+                            "config_map": [],
+                            "csi": [],
+                            "downward_api": [],
+                            "empty_dir": [],
+                            "ephemeral": [],
+                            "fc": [],
+                            "flex_volume": [],
+                            "flocker": [],
+                            "gce_persistent_disk": [],
+                            "git_repo": [],
+                            "glusterfs": [],
+                            "host_path": [],
+                            "iscsi": [],
+                            "local": [],
+                            "name": "jenkins-home",
+                            "nfs": [],
+                            "persistent_volume_claim": [
+                              {
+                                "claim_name": "jenkins-pvc",
+                                "read_only": false
+                              }
+                            ],
+                            "photon_persistent_disk": [],
+                            "projected": [],
+                            "quobyte": [],
+                            "rbd": [],
+                            "secret": [],
+                            "vsphere_volume": []
+                          },
+                          {
+                            "aws_elastic_block_store": [],
+                            "azure_disk": [],
+                            "azure_file": [],
+                            "ceph_fs": [],
+                            "cinder": [],
+                            "config_map": [],
+                            "csi": [],
+                            "downward_api": [],
+                            "empty_dir": [],
+                            "ephemeral": [],
+                            "fc": [],
+                            "flex_volume": [],
+                            "flocker": [],
+                            "gce_persistent_disk": [],
+                            "git_repo": [],
+                            "glusterfs": [],
+                            "host_path": [
+                              {
+                                "path": "/var/run/docker.sock",
+                                "type": "Socket"
+                              }
+                            ],
+                            "iscsi": [],
+                            "local": [],
+                            "name": "docker-sock",
+                            "nfs": [],
+                            "persistent_volume_claim": [],
+                            "photon_persistent_disk": [],
+                            "projected": [],
+                            "quobyte": [],
+                            "rbd": [],
+                            "secret": [],
+                            "vsphere_volume": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "timeouts": null,
+            "wait_for_rollout": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": "apps/v1",
+            "kind": "Deployment",
+            "name": "jenkins",
+            "namespace": "consulta-medica"
+          },
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6NjAwMDAwMDAwMDAwLCJ1cGRhdGUiOjYwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMSJ9",
+          "dependencies": [
+            "kubernetes_namespace.consulta_medica",
+            "kubernetes_persistent_volume_claim.jenkins_pvc",
+            "kubernetes_service_account.jenkins"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_deployment",
+      "name": "prometheus",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "id": "consulta-medica/prometheus",
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 1,
+                "labels": {
+                  "app": "prometheus"
+                },
+                "name": "prometheus",
+                "namespace": "consulta-medica",
+                "resource_version": "1889",
+                "uid": "f8b9aa15-c6e6-49ca-9e70-e96641c0dba9"
+              }
+            ],
+            "spec": [
+              {
+                "min_ready_seconds": 0,
+                "paused": false,
+                "progress_deadline_seconds": 600,
+                "replicas": "1",
+                "revision_history_limit": 10,
+                "selector": [
+                  {
+                    "match_expressions": [],
+                    "match_labels": {
+                      "app": "prometheus"
+                    }
+                  }
+                ],
+                "strategy": [
+                  {
+                    "rolling_update": [
+                      {
+                        "max_surge": "25%",
+                        "max_unavailable": "25%"
+                      }
+                    ],
+                    "type": "RollingUpdate"
+                  }
+                ],
+                "template": [
+                  {
+                    "metadata": [
+                      {
+                        "annotations": null,
+                        "generate_name": "",
+                        "generation": 0,
+                        "labels": {
+                          "app": "prometheus"
+                        },
+                        "name": "",
+                        "namespace": "",
+                        "resource_version": "",
+                        "uid": ""
+                      }
+                    ],
+                    "spec": [
+                      {
+                        "active_deadline_seconds": 0,
+                        "affinity": [],
+                        "automount_service_account_token": true,
+                        "container": [
+                          {
+                            "args": [
+                              "--config.file=/etc/prometheus/prometheus.yml",
+                              "--storage.tsdb.path=/prometheus"
+                            ],
+                            "command": null,
+                            "env": [],
+                            "env_from": [],
+                            "image": "prom/prometheus:latest",
+                            "image_pull_policy": "Always",
+                            "lifecycle": [],
+                            "liveness_probe": [],
+                            "name": "prometheus",
+                            "port": [
+                              {
+                                "container_port": 9090,
+                                "host_ip": "",
+                                "host_port": 0,
+                                "name": "",
+                                "protocol": "TCP"
+                              }
+                            ],
+                            "readiness_probe": [],
+                            "resources": [
+                              {
+                                "limits": {},
+                                "requests": {}
+                              }
+                            ],
+                            "security_context": [],
+                            "startup_probe": [],
+                            "stdin": false,
+                            "stdin_once": false,
+                            "termination_message_path": "/dev/termination-log",
+                            "termination_message_policy": "File",
+                            "tty": false,
+                            "volume_device": [],
+                            "volume_mount": [
+                              {
+                                "mount_path": "/etc/prometheus/prometheus.yml",
+                                "mount_propagation": "None",
+                                "name": "prometheus-config",
+                                "read_only": false,
+                                "sub_path": "prometheus.yml",
+                                "sub_path_expr": ""
+                              }
+                            ],
+                            "working_dir": ""
+                          }
+                        ],
+                        "dns_config": [],
+                        "dns_policy": "ClusterFirst",
+                        "enable_service_links": true,
+                        "host_aliases": [],
+                        "host_ipc": false,
+                        "host_network": false,
+                        "host_pid": false,
+                        "hostname": "",
+                        "image_pull_secrets": [],
+                        "init_container": [],
+                        "node_name": "",
+                        "node_selector": null,
+                        "os": [],
+                        "priority_class_name": "",
+                        "readiness_gate": [],
+                        "restart_policy": "Always",
+                        "runtime_class_name": "",
+                        "scheduler_name": "default-scheduler",
+                        "security_context": [],
+                        "service_account_name": "",
+                        "share_process_namespace": false,
+                        "subdomain": "",
+                        "termination_grace_period_seconds": 30,
+                        "toleration": [],
+                        "topology_spread_constraint": [],
+                        "volume": [
+                          {
+                            "aws_elastic_block_store": [],
+                            "azure_disk": [],
+                            "azure_file": [],
+                            "ceph_fs": [],
+                            "cinder": [],
+                            "config_map": [
+                              {
+                                "default_mode": "0644",
+                                "items": [],
+                                "name": "prometheus-config",
+                                "optional": false
+                              }
+                            ],
+                            "csi": [],
+                            "downward_api": [],
+                            "empty_dir": [],
+                            "ephemeral": [],
+                            "fc": [],
+                            "flex_volume": [],
+                            "flocker": [],
+                            "gce_persistent_disk": [],
+                            "git_repo": [],
+                            "glusterfs": [],
+                            "host_path": [],
+                            "iscsi": [],
+                            "local": [],
+                            "name": "prometheus-config",
+                            "nfs": [],
+                            "persistent_volume_claim": [],
+                            "photon_persistent_disk": [],
+                            "projected": [],
+                            "quobyte": [],
+                            "rbd": [],
+                            "secret": [],
+                            "vsphere_volume": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "timeouts": null,
+            "wait_for_rollout": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": "apps/v1",
+            "kind": "Deployment",
+            "name": "prometheus",
+            "namespace": "consulta-medica"
+          },
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6NjAwMDAwMDAwMDAwLCJ1cGRhdGUiOjYwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMSJ9",
+          "dependencies": [
+            "kubernetes_config_map.prometheus_config",
+            "kubernetes_namespace.consulta_medica"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_namespace",
+      "name": "consulta_medica",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "consulta-medica",
+            "metadata": [
+              {
+                "annotations": {},
+                "generate_name": "",
+                "generation": 0,
+                "labels": {},
+                "name": "consulta-medica",
+                "resource_version": "1154",
+                "uid": "078d8bdb-eeef-4f91-927f-c9ac83ed71b2"
+              }
+            ],
+            "timeouts": null,
+            "wait_for_default_service_account": false
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": "v1",
+            "kind": "Namespace",
+            "name": "consulta-medica"
+          },
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiZGVsZXRlIjozMDAwMDAwMDAwMDB9fQ=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_persistent_volume_claim",
+      "name": "jenkins_pvc",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "consulta-medica/jenkins-pvc",
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 0,
+                "labels": null,
+                "name": "jenkins-pvc",
+                "namespace": "consulta-medica",
+                "resource_version": "1193",
+                "uid": "765d24d4-764d-40ef-bdc7-d12dad328204"
+              }
+            ],
+            "spec": [
+              {
+                "access_modes": [
+                  "ReadWriteOnce"
+                ],
+                "resources": [
+                  {
+                    "limits": null,
+                    "requests": {
+                      "storage": "20Gi"
+                    }
+                  }
+                ],
+                "selector": [],
+                "storage_class_name": "standard",
+                "volume_mode": "Filesystem",
+                "volume_name": "pvc-765d24d4-764d-40ef-bdc7-d12dad328204"
+              }
+            ],
+            "timeouts": null,
+            "wait_until_bound": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDB9fQ==",
+          "dependencies": [
+            "kubernetes_namespace.consulta_medica"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_persistent_volume_claim",
+      "name": "mysql_pvc",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "consulta-medica/mysql-pvc",
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 0,
+                "labels": null,
+                "name": "mysql-pvc",
+                "namespace": "consulta-medica",
+                "resource_version": "1196",
+                "uid": "cb2fcf31-b3e4-48f8-acd9-ab0ad5b0ea3b"
+              }
+            ],
+            "spec": [
+              {
+                "access_modes": [
+                  "ReadWriteOnce"
+                ],
+                "resources": [
+                  {
+                    "limits": null,
+                    "requests": {
+                      "storage": "10Gi"
+                    }
+                  }
+                ],
+                "selector": [],
+                "storage_class_name": "standard",
+                "volume_mode": "Filesystem",
+                "volume_name": "pvc-cb2fcf31-b3e4-48f8-acd9-ab0ad5b0ea3b"
+              }
+            ],
+            "timeouts": null,
+            "wait_until_bound": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDB9fQ==",
+          "dependencies": [
+            "kubernetes_namespace.consulta_medica"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_persistent_volume_claim",
+      "name": "registry_pvc",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "consulta-medica/docker-registry-pvc",
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 0,
+                "labels": null,
+                "name": "docker-registry-pvc",
+                "namespace": "consulta-medica",
+                "resource_version": "1210",
+                "uid": "92d5eb84-0259-4558-8dc5-d13543a707a4"
+              }
+            ],
+            "spec": [
+              {
+                "access_modes": [
+                  "ReadWriteOnce"
+                ],
+                "resources": [
+                  {
+                    "limits": null,
+                    "requests": {
+                      "storage": "20Gi"
+                    }
+                  }
+                ],
+                "selector": [],
+                "storage_class_name": "standard",
+                "volume_mode": "Filesystem",
+                "volume_name": "pvc-92d5eb84-0259-4558-8dc5-d13543a707a4"
+              }
+            ],
+            "timeouts": null,
+            "wait_until_bound": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDB9fQ==",
+          "dependencies": [
+            "kubernetes_namespace.consulta_medica"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_role_binding",
+      "name": "jenkins_admin",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "consulta-medica/jenkins-admin-consulta-medica",
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 0,
+                "labels": null,
+                "name": "jenkins-admin-consulta-medica",
+                "namespace": "consulta-medica",
+                "resource_version": "1708",
+                "uid": "b1abb861-01ca-48a0-88c5-ef1977e5f546"
+              }
+            ],
+            "role_ref": [
+              {
+                "api_group": "rbac.authorization.k8s.io",
+                "kind": "ClusterRole",
+                "name": "cluster-admin"
+              }
+            ],
+            "subject": [
+              {
+                "api_group": "",
+                "kind": "ServiceAccount",
+                "name": "jenkins",
+                "namespace": "consulta-medica"
+              }
+            ]
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": "rbac.authorization.k8s.io/v1",
+            "kind": "RoleBinding",
+            "name": "jenkins-admin-consulta-medica",
+            "namespace": "consulta-medica"
+          },
+          "private": "bnVsbA==",
+          "dependencies": [
+            "kubernetes_namespace.consulta_medica",
+            "kubernetes_service_account.jenkins"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_role_binding",
+      "name": "prometheus_admin",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "consulta-medica/prometheus-admin-consulta-medica",
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 0,
+                "labels": null,
+                "name": "prometheus-admin-consulta-medica",
+                "namespace": "consulta-medica",
+                "resource_version": "1156",
+                "uid": "9bd04414-d6fc-492a-88c8-e04670d31cef"
+              }
+            ],
+            "role_ref": [
+              {
+                "api_group": "rbac.authorization.k8s.io",
+                "kind": "ClusterRole",
+                "name": "cluster-admin"
+              }
+            ],
+            "subject": [
+              {
+                "api_group": "",
+                "kind": "ServiceAccount",
+                "name": "default",
+                "namespace": "consulta-medica"
+              }
+            ]
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": "rbac.authorization.k8s.io/v1",
+            "kind": "RoleBinding",
+            "name": "prometheus-admin-consulta-medica",
+            "namespace": "consulta-medica"
+          },
+          "private": "bnVsbA==",
+          "dependencies": [
+            "kubernetes_namespace.consulta_medica"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_secret",
+      "name": "db_secret",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "binary_data": null,
+            "binary_data_wo": null,
+            "binary_data_wo_revision": null,
+            "data": {
+              "DB_PASSWORD": "TuContraseñaSegura",
+              "MYSQL_PASSWORD": "TuContraseñaSegura",
+              "MYSQL_ROOT_PASSWORD": "rootpassword"
+            },
+            "data_wo": null,
+            "data_wo_revision": null,
+            "id": "consulta-medica/db-secret",
+            "immutable": false,
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 0,
+                "labels": null,
+                "name": "db-secret",
+                "namespace": "consulta-medica",
+                "resource_version": "1211",
+                "uid": "e194feba-4b4d-4cf8-abc8-b5dcaf07827e"
+              }
+            ],
+            "timeouts": null,
+            "type": "Opaque",
+            "wait_for_service_account_token": true
+          },
+          "sensitive_attributes": [
+            [
+              {
+                "type": "get_attr",
+                "value": "binary_data"
+              }
+            ],
+            [
+              {
+                "type": "get_attr",
+                "value": "data"
+              }
+            ]
+          ],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": "v1",
+            "kind": "Secret",
+            "name": "db-secret",
+            "namespace": "consulta-medica"
+          },
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMH19",
+          "dependencies": [
+            "kubernetes_namespace.consulta_medica"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_service",
+      "name": "app",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "status": "tainted",
+          "schema_version": 1,
+          "attributes": {
+            "id": "consulta-medica/consulta-medica",
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 0,
+                "labels": null,
+                "name": "consulta-medica",
+                "namespace": "consulta-medica",
+                "resource_version": "",
+                "uid": ""
+              }
+            ],
+            "spec": [
+              {
+                "allocate_load_balancer_node_ports": true,
+                "cluster_ip": "",
+                "cluster_ips": [],
+                "external_ips": null,
+                "external_name": "",
+                "external_traffic_policy": "",
+                "health_check_node_port": 0,
+                "internal_traffic_policy": "",
+                "ip_families": [],
+                "ip_family_policy": "",
+                "load_balancer_class": "",
+                "load_balancer_ip": "",
+                "load_balancer_source_ranges": null,
+                "port": [
+                  {
+                    "app_protocol": "",
+                    "name": "",
+                    "node_port": 0,
+                    "port": 80,
+                    "protocol": "TCP",
+                    "target_port": "80"
+                  }
+                ],
+                "publish_not_ready_addresses": false,
+                "selector": {
+                  "app": "consulta-medica"
+                },
+                "session_affinity": "None",
+                "session_affinity_config": [],
+                "type": "LoadBalancer"
+              }
+            ],
+            "status": null,
+            "timeouts": null,
+            "wait_for_load_balancer": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": null,
+            "kind": null,
+            "name": null,
+            "namespace": null
+          },
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDB9LCJzY2hlbWFfdmVyc2lvbiI6IjEifQ==",
+          "dependencies": [
+            "kubernetes_namespace.consulta_medica"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_service",
+      "name": "docker_registry",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "id": "consulta-medica/docker-registry",
+            "metadata": [
+              {
+                "annotations": {},
+                "generate_name": "",
+                "generation": 0,
+                "labels": {},
+                "name": "docker-registry",
+                "namespace": "consulta-medica",
+                "resource_version": "1175",
+                "uid": "1d6cce21-d704-415f-9a96-e1122063df9f"
+              }
+            ],
+            "spec": [
+              {
+                "allocate_load_balancer_node_ports": true,
+                "cluster_ip": "10.111.74.107",
+                "cluster_ips": [
+                  "10.111.74.107"
+                ],
+                "external_ips": [],
+                "external_name": "",
+                "external_traffic_policy": "Cluster",
+                "health_check_node_port": 0,
+                "internal_traffic_policy": "Cluster",
+                "ip_families": [
+                  "IPv4"
+                ],
+                "ip_family_policy": "SingleStack",
+                "load_balancer_class": "",
+                "load_balancer_ip": "",
+                "load_balancer_source_ranges": [],
+                "port": [
+                  {
+                    "app_protocol": "",
+                    "name": "",
+                    "node_port": 32604,
+                    "port": 5000,
+                    "protocol": "TCP",
+                    "target_port": "5000"
+                  }
+                ],
+                "publish_not_ready_addresses": false,
+                "selector": {
+                  "app": "docker-registry"
+                },
+                "session_affinity": "None",
+                "session_affinity_config": [],
+                "type": "LoadBalancer"
+              }
+            ],
+            "status": [
+              {
+                "load_balancer": [
+                  {
+                    "ingress": []
+                  }
+                ]
+              }
+            ],
+            "timeouts": null,
+            "wait_for_load_balancer": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": "v1",
+            "kind": "Service",
+            "name": "docker-registry",
+            "namespace": "consulta-medica"
+          },
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDB9LCJzY2hlbWFfdmVyc2lvbiI6IjEifQ=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_service",
+      "name": "grafana",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "status": "tainted",
+          "schema_version": 1,
+          "attributes": {
+            "id": "consulta-medica/grafana",
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 0,
+                "labels": null,
+                "name": "grafana",
+                "namespace": "consulta-medica",
+                "resource_version": "",
+                "uid": ""
+              }
+            ],
+            "spec": [
+              {
+                "allocate_load_balancer_node_ports": true,
+                "cluster_ip": "",
+                "cluster_ips": [],
+                "external_ips": null,
+                "external_name": "",
+                "external_traffic_policy": "",
+                "health_check_node_port": 0,
+                "internal_traffic_policy": "",
+                "ip_families": [],
+                "ip_family_policy": "",
+                "load_balancer_class": "",
+                "load_balancer_ip": "",
+                "load_balancer_source_ranges": null,
+                "port": [
+                  {
+                    "app_protocol": "",
+                    "name": "",
+                    "node_port": 0,
+                    "port": 3000,
+                    "protocol": "TCP",
+                    "target_port": "3000"
+                  }
+                ],
+                "publish_not_ready_addresses": false,
+                "selector": {
+                  "app": "grafana"
+                },
+                "session_affinity": "None",
+                "session_affinity_config": [],
+                "type": "LoadBalancer"
+              }
+            ],
+            "status": null,
+            "timeouts": null,
+            "wait_for_load_balancer": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": null,
+            "kind": null,
+            "name": null,
+            "namespace": null
+          },
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDB9LCJzY2hlbWFfdmVyc2lvbiI6IjEifQ==",
+          "dependencies": [
+            "kubernetes_namespace.consulta_medica"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_service",
+      "name": "jenkins",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "status": "tainted",
+          "schema_version": 1,
+          "attributes": {
+            "id": "consulta-medica/jenkins",
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 0,
+                "labels": null,
+                "name": "jenkins",
+                "namespace": "consulta-medica",
+                "resource_version": "",
+                "uid": ""
+              }
+            ],
+            "spec": [
+              {
+                "allocate_load_balancer_node_ports": true,
+                "cluster_ip": "",
+                "cluster_ips": [],
+                "external_ips": null,
+                "external_name": "",
+                "external_traffic_policy": "",
+                "health_check_node_port": 0,
+                "internal_traffic_policy": "",
+                "ip_families": [],
+                "ip_family_policy": "",
+                "load_balancer_class": "",
+                "load_balancer_ip": "",
+                "load_balancer_source_ranges": null,
+                "port": [
+                  {
+                    "app_protocol": "",
+                    "name": "http",
+                    "node_port": 0,
+                    "port": 8080,
+                    "protocol": "TCP",
+                    "target_port": "8080"
+                  },
+                  {
+                    "app_protocol": "",
+                    "name": "jnlp",
+                    "node_port": 0,
+                    "port": 50000,
+                    "protocol": "TCP",
+                    "target_port": "50000"
+                  }
+                ],
+                "publish_not_ready_addresses": false,
+                "selector": {
+                  "app": "jenkins"
+                },
+                "session_affinity": "None",
+                "session_affinity_config": [],
+                "type": "LoadBalancer"
+              }
+            ],
+            "status": null,
+            "timeouts": null,
+            "wait_for_load_balancer": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": null,
+            "kind": null,
+            "name": null,
+            "namespace": null
+          },
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDB9LCJzY2hlbWFfdmVyc2lvbiI6IjEifQ==",
+          "dependencies": [
+            "kubernetes_namespace.consulta_medica"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_service",
+      "name": "mysql",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "id": "consulta-medica/mysql",
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 0,
+                "labels": null,
+                "name": "mysql",
+                "namespace": "consulta-medica",
+                "resource_version": "1169",
+                "uid": "2ed34607-09bf-4048-b37b-c38144b6de56"
+              }
+            ],
+            "spec": [
+              {
+                "allocate_load_balancer_node_ports": true,
+                "cluster_ip": "None",
+                "cluster_ips": [
+                  "None"
+                ],
+                "external_ips": null,
+                "external_name": "",
+                "external_traffic_policy": "",
+                "health_check_node_port": 0,
+                "internal_traffic_policy": "Cluster",
+                "ip_families": [
+                  "IPv4"
+                ],
+                "ip_family_policy": "SingleStack",
+                "load_balancer_class": "",
+                "load_balancer_ip": "",
+                "load_balancer_source_ranges": null,
+                "port": [
+                  {
+                    "app_protocol": "",
+                    "name": "",
+                    "node_port": 0,
+                    "port": 3306,
+                    "protocol": "TCP",
+                    "target_port": "3306"
+                  }
+                ],
+                "publish_not_ready_addresses": false,
+                "selector": {
+                  "app": "mysql"
+                },
+                "session_affinity": "None",
+                "session_affinity_config": [],
+                "type": "ClusterIP"
+              }
+            ],
+            "status": [
+              {
+                "load_balancer": [
+                  {
+                    "ingress": []
+                  }
+                ]
+              }
+            ],
+            "timeouts": null,
+            "wait_for_load_balancer": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": "v1",
+            "kind": "Service",
+            "name": "mysql",
+            "namespace": "consulta-medica"
+          },
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDB9LCJzY2hlbWFfdmVyc2lvbiI6IjEifQ==",
+          "dependencies": [
+            "kubernetes_namespace.consulta_medica"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_service",
+      "name": "prometheus",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "status": "tainted",
+          "schema_version": 1,
+          "attributes": {
+            "id": "consulta-medica/prometheus",
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 0,
+                "labels": null,
+                "name": "prometheus",
+                "namespace": "consulta-medica",
+                "resource_version": "",
+                "uid": ""
+              }
+            ],
+            "spec": [
+              {
+                "allocate_load_balancer_node_ports": true,
+                "cluster_ip": "",
+                "cluster_ips": [],
+                "external_ips": null,
+                "external_name": "",
+                "external_traffic_policy": "",
+                "health_check_node_port": 0,
+                "internal_traffic_policy": "",
+                "ip_families": [],
+                "ip_family_policy": "",
+                "load_balancer_class": "",
+                "load_balancer_ip": "",
+                "load_balancer_source_ranges": null,
+                "port": [
+                  {
+                    "app_protocol": "",
+                    "name": "",
+                    "node_port": 0,
+                    "port": 9090,
+                    "protocol": "TCP",
+                    "target_port": "9090"
+                  }
+                ],
+                "publish_not_ready_addresses": false,
+                "selector": {
+                  "app": "prometheus"
+                },
+                "session_affinity": "None",
+                "session_affinity_config": [],
+                "type": "LoadBalancer"
+              }
+            ],
+            "status": null,
+            "timeouts": null,
+            "wait_for_load_balancer": true
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": null,
+            "kind": null,
+            "name": null,
+            "namespace": null
+          },
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDB9LCJzY2hlbWFfdmVyc2lvbiI6IjEifQ==",
+          "dependencies": [
+            "kubernetes_namespace.consulta_medica"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_service_account",
+      "name": "jenkins",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "automount_service_account_token": true,
+            "default_secret_name": "",
+            "id": "consulta-medica/jenkins",
+            "image_pull_secret": [],
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 0,
+                "labels": null,
+                "name": "jenkins",
+                "namespace": "consulta-medica",
+                "resource_version": "1155",
+                "uid": "83bf602b-129f-49e2-bb91-df5ac6aca916"
+              }
+            ],
+            "secret": [],
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 1,
+          "identity": {
+            "api_version": "v1",
+            "kind": "ServiceAccount",
+            "name": "jenkins",
+            "namespace": "consulta-medica"
+          },
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "kubernetes_namespace.consulta_medica"
+          ]
+        }
+      ]
+    }
+  ],
+  "check_results": null
+}

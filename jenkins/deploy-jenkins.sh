@@ -47,7 +47,8 @@ check_requirements() {
     fi
     
     if ! kubectl cluster-info &>/dev/null; then
-        log_error "No se puede conectar a Kubernetes"
+        log_error "No se puede conectar a Kubernetes con el contexto actual"
+        log_info "Contexto activo: $(kubectl config current-context 2>/dev/null || echo 'no definido')"
         exit 1
     fi
     
@@ -72,7 +73,17 @@ deploy_registry() {
 
     cd "$TERRAFORM_DIR"
     terraform init -input=false
-    terraform apply -auto-approve -input=false
+
+    log_info "Saneando estado Terraform para recursos Kubernetes críticos..."
+    terraform state rm kubernetes_deployment.mysql >/dev/null 2>&1 || true
+    terraform state rm kubernetes_deployment.app >/dev/null 2>&1 || true
+    terraform state rm kubernetes_service.docker_registry >/dev/null 2>&1 || true
+
+    terraform import kubernetes_deployment.mysql "${NAMESPACE}/mysql" >/dev/null 2>&1 || true
+    terraform import kubernetes_deployment.app "${NAMESPACE}/consulta-medica" >/dev/null 2>&1 || true
+    terraform import kubernetes_service.docker_registry "${NAMESPACE}/docker-registry" >/dev/null 2>&1 || true
+
+    terraform apply -auto-approve -input=false -parallelism=5
     cd "$PROJECT_ROOT"
 
     log_success "Recursos aprovisionados por Terraform"

@@ -14,11 +14,7 @@
                 <div class="login-logo">
                     <i class="fas fa-hospital"></i>
                 </div>
-<<<<<<< HEAD
-                <h1 class="login-title">HOSPITAL BASICO PY PLAYAS</h1>
-=======
                 <h1 class="login-title">HOSPITAL BASICO PLAYAS</h1>
->>>>>>> parent of b5529f4 (Segudna version: optimizacion de arranque)
                 <p class="login-subtitle">Sistema de Atención Integral de Salud</p>
             </div>
 

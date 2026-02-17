@@ -24,6 +24,9 @@ TERRAFORM_DIR="$PROJECT_ROOT/terraform"
 JENKINS_DIR="$PROJECT_ROOT/jenkins"
 K8S_DIR="$PROJECT_ROOT/k8s"
 DOCKER_DIR="$PROJECT_ROOT/docker"
+DASHBOARD_NAMESPACE="kubernetes-dashboard"
+DASHBOARD_URL=""
+DASHBOARD_TOKEN=""
 
 # Funciones de logging
 log_info() {
@@ -55,6 +58,18 @@ pause() {
     read -p "Presiona Enter para continuar..."
 }
 
+ensure_kubernetes_connection() {
+    if kubectl cluster-info &>/dev/null; then
+        log_success "Kubernetes disponible"
+        return 0
+    fi
+
+    log_error "No se puede conectar a Kubernetes con el contexto actual"
+    log_info "Contexto activo: $(kubectl config current-context 2>/dev/null || echo 'no definido')"
+    log_info "Configura un clúster accesible y vuelve a ejecutar este script"
+    return 1
+}
+
 # Verificar requisitos previos
 check_requirements() {
     log_header "VERIFICACIÓN DE REQUISITOS"
@@ -78,11 +93,8 @@ check_requirements() {
     fi
     
     # Verificar Kubernetes
-    if ! kubectl cluster-info &>/dev/null; then
-        log_error "No se puede conectar a Kubernetes"
+    if ! ensure_kubernetes_connection; then
         missing_tools=$((missing_tools + 1))
-    else
-        log_success "Kubernetes disponible"
     fi
     
     # Verificar Terraform
@@ -172,12 +184,21 @@ deploy_terraform() {
     
     log_info "Inicializando Terraform..."
     terraform init
+
+    log_info "Saneando estado Terraform para recursos Kubernetes críticos..."
+    terraform state rm kubernetes_deployment.mysql >/dev/null 2>&1 || true
+    terraform state rm kubernetes_deployment.app >/dev/null 2>&1 || true
+    terraform state rm kubernetes_service.docker_registry >/dev/null 2>&1 || true
+
+    terraform import kubernetes_deployment.mysql "${NAMESPACE}/mysql" >/dev/null 2>&1 || true
+    terraform import kubernetes_deployment.app "${NAMESPACE}/consulta-medica" >/dev/null 2>&1 || true
+    terraform import kubernetes_service.docker_registry "${NAMESPACE}/docker-registry" >/dev/null 2>&1 || true
     
     log_info "Planificando despliegue..."
     terraform plan -out=tfplan
     
     log_info "Aplicando configuración..."
-    terraform apply tfplan
+    terraform apply -parallelism=5 tfplan
     
     log_success "Despliegue de Terraform completado"
     cd "$PROJECT_ROOT"
@@ -210,6 +231,74 @@ deploy_observability() {
     log_header "OBSERVABILIDAD GESTIONADA POR TERRAFORM"
     log_info "No se aplican manifiestos YAML directos de observabilidad."
     log_info "Prometheus y Grafana se aprovisionan únicamente desde terraform/main.tf."
+}
+
+setup_kubernetes_dashboard() {
+    log_header "AUTOMATIZACIÓN KUBERNETES DASHBOARD"
+
+    local current_context
+    current_context="$(kubectl config current-context 2>/dev/null || true)"
+
+    if [ "$current_context" != "minikube" ] || ! command -v minikube >/dev/null 2>&1; then
+        log_warning "El Dashboard está configurado únicamente para Minikube. Contexto actual: ${current_context:-no definido}"
+        return 0
+    fi
+
+    log_info "Contexto Minikube detectado. Habilitando addons requeridos..."
+    minikube addons enable dashboard >/dev/null 2>&1 || true
+    minikube addons enable metrics-server >/dev/null 2>&1 || true
+
+    kubectl -n "$DASHBOARD_NAMESPACE" rollout status deploy/kubernetes-dashboard --timeout=180s >/dev/null 2>&1 || true
+    kubectl -n "$DASHBOARD_NAMESPACE" rollout status deploy/dashboard-metrics-scraper --timeout=180s >/dev/null 2>&1 || true
+
+    if ! kubectl get namespace "$DASHBOARD_NAMESPACE" &>/dev/null; then
+        log_warning "No se encontró el namespace $DASHBOARD_NAMESPACE. Se omite automatización de Dashboard."
+        return 0
+    fi
+
+    log_info "Creando/actualizando credenciales de acceso al Dashboard..."
+    kubectl -n "$DASHBOARD_NAMESPACE" create serviceaccount dashboard-admin --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+    kubectl create clusterrolebinding dashboard-admin --clusterrole=cluster-admin --serviceaccount=${DASHBOARD_NAMESPACE}:dashboard-admin >/dev/null 2>&1 || true
+
+    DASHBOARD_TOKEN="$(kubectl -n "$DASHBOARD_NAMESPACE" create token dashboard-admin --duration=24h 2>/dev/null || true)"
+
+    kubectl -n "$DASHBOARD_NAMESPACE" patch svc kubernetes-dashboard -p '{"spec":{"type":"NodePort"}}' >/dev/null 2>&1 || true
+
+    local minikube_ip
+    local dashboard_node_port
+    minikube_ip="$(minikube ip 2>/dev/null || true)"
+
+    for _ in {1..10}; do
+        dashboard_node_port="$(kubectl -n "$DASHBOARD_NAMESPACE" get svc kubernetes-dashboard -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || true)"
+        if [ -n "$dashboard_node_port" ]; then
+            break
+        fi
+        sleep 1
+    done
+
+    if [ -n "$minikube_ip" ] && [ -n "$dashboard_node_port" ]; then
+        DASHBOARD_URL="http://${minikube_ip}:${dashboard_node_port}"
+    fi
+
+    if [ -z "$DASHBOARD_URL" ]; then
+        local minikube_service_log="/tmp/minikube-dashboard-service-url.log"
+        pkill -f "minikube service -n ${DASHBOARD_NAMESPACE} kubernetes-dashboard --url" 2>/dev/null || true
+        nohup minikube service -n "$DASHBOARD_NAMESPACE" kubernetes-dashboard --url > "$minikube_service_log" 2>&1 &
+
+        for _ in {1..15}; do
+            DASHBOARD_URL="$(grep -Eo 'http://127\.0\.0\.1:[0-9]+' "$minikube_service_log" | tail -n 1 || true)"
+            if [ -n "$DASHBOARD_URL" ]; then
+                break
+            fi
+            sleep 1
+        done
+    fi
+
+    if [ -n "$DASHBOARD_URL" ]; then
+        log_success "Dashboard de Minikube automatizado correctamente"
+    else
+        log_warning "No se pudo obtener URL de Dashboard en Minikube"
+    fi
 }
 
 # Mostrar información de acceso
@@ -257,6 +346,18 @@ show_access_info() {
     echo "  Usuario: admin"
     echo "  Contraseña: admin"
     echo ""
+
+    if [ -n "$DASHBOARD_URL" ]; then
+        log_info "Kubernetes Dashboard"
+        echo "  URL: $DASHBOARD_URL"
+        if [ -n "$DASHBOARD_TOKEN" ]; then
+            echo "  Token:"
+            echo "  $DASHBOARD_TOKEN"
+        else
+            echo "  Token: kubectl -n $DASHBOARD_NAMESPACE create token dashboard-admin --duration=24h"
+        fi
+        echo ""
+    fi
 }
 
 # Verificar estado del despliegue
@@ -286,7 +387,7 @@ main() {
 ║     DESPLIEGUE COMPLETO - LABORATORIO DEVOPS              ║
 ║     Sistema de Consulta Médica con Jenkins Local          ║
 ║                                                            ║
-║     Kubernetes (Docker Desktop) + Jenkins + Registry      ║
+║     Kubernetes (Minikube/Docker Desktop) + Jenkins        ║
 ║                                                            ║
 ╚════════════════════════════════════════════════════════════╝
 EOF
@@ -311,6 +412,7 @@ EOF
     configure_docker
     create_namespace
     deploy_terraform
+    setup_kubernetes_dashboard
     verify_deployment
     show_access_info
     

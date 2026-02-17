@@ -8,7 +8,21 @@ terraform {
   }
 }
 
+variable "kubeconfig_path" {
+  description = "Ruta del kubeconfig para ejecución local. Vacío para usar credenciales in-cluster."
+  type        = string
+  default     = "~/.kube/config"
+}
+
+variable "kubeconfig_context" {
+  description = "Contexto opcional del kubeconfig"
+  type        = string
+  default     = ""
+}
+
 provider "kubernetes" {
+  config_path    = trimspace(var.kubeconfig_path) != "" ? pathexpand(var.kubeconfig_path) : null
+  config_context = trimspace(var.kubeconfig_context) != "" ? var.kubeconfig_context : null
 }
 
 variable "namespace" {
@@ -18,15 +32,33 @@ variable "namespace" {
 }
 
 variable "app_image" {
-  description = "Imagen de la aplicación que Jenkins actualizará en cada build"
+  description = "Imagen de la aplicación. En entorno local usar imagen disponible en el daemon de Docker Desktop"
   type        = string
-  default     = "localhost:5000/consulta-medica:latest"
+  default     = "consulta-medica:fix-mbstring"
+}
+
+variable "app_image_pull_policy" {
+  description = "Política de pull para la imagen de la app"
+  type        = string
+  default     = "IfNotPresent"
+}
+
+variable "app_replicas" {
+  description = "Réplicas iniciales de la app"
+  type        = number
+  default     = 1
 }
 
 variable "service_type" {
   description = "Tipo de servicio para exposiciones locales"
   type        = string
   default     = "LoadBalancer"
+}
+
+variable "wait_for_load_balancer" {
+  description = "Espera a que el Service tipo LoadBalancer obtenga endpoint externo durante apply"
+  type        = bool
+  default     = false
 }
 
 variable "db_name" {
@@ -104,6 +136,8 @@ resource "kubernetes_persistent_volume_claim" "mysql_pvc" {
 }
 
 resource "kubernetes_deployment" "mysql" {
+  wait_for_rollout = true
+
   metadata {
     name      = "mysql"
     namespace = kubernetes_namespace.consulta_medica.metadata[0].name
@@ -131,7 +165,7 @@ resource "kubernetes_deployment" "mysql" {
       spec {
         container {
           name  = "mysql"
-          image = "mysql:5.7"
+          image = "mysql:8.0"
 
           port {
             container_port = 3306
@@ -185,6 +219,8 @@ resource "kubernetes_deployment" "mysql" {
 }
 
 resource "kubernetes_service" "mysql" {
+  wait_for_load_balancer = var.wait_for_load_balancer
+
   metadata {
     name      = "mysql"
     namespace = kubernetes_namespace.consulta_medica.metadata[0].name
@@ -204,7 +240,115 @@ resource "kubernetes_service" "mysql" {
   }
 }
 
+resource "kubernetes_config_map" "mysql_init_sql" {
+  metadata {
+    name      = "mysql-init-sql"
+    namespace = kubernetes_namespace.consulta_medica.metadata[0].name
+  }
+
+  data = {
+    "database.sql" = file("${path.module}/../app/consulta_medica/sql/database.sql")
+  }
+}
+
+resource "kubernetes_job" "mysql_seed" {
+  metadata {
+    name      = "mysql-seed"
+    namespace = kubernetes_namespace.consulta_medica.metadata[0].name
+  }
+
+  spec {
+    backoff_limit = 3
+
+    template {
+      metadata {
+        labels = {
+          app = "mysql-seed"
+        }
+      }
+
+      spec {
+        restart_policy = "OnFailure"
+
+        container {
+          name  = "mysql-seed"
+          image = "mysql:8.0"
+
+          env {
+            name  = "DB_HOST"
+            value = kubernetes_service.mysql.metadata[0].name
+          }
+
+          env {
+            name  = "DB_NAME"
+            value = var.db_name
+          }
+
+          env {
+            name  = "DB_USER"
+            value = var.db_user
+          }
+
+          env {
+            name = "DB_PASSWORD"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.db_secret.metadata[0].name
+                key  = "DB_PASSWORD"
+              }
+            }
+          }
+
+          command = ["/bin/sh", "-c"]
+          args = [
+            <<-EOT
+              set -e
+              echo "Esperando MySQL en $${DB_HOST}:3306..."
+              MYSQL_CMD="mysql --default-character-set=utf8mb4 -h\"$${DB_HOST}\" -u\"$${DB_USER}\" -p\"$${DB_PASSWORD}\""
+
+              until sh -lc "$${MYSQL_CMD} -Nse 'SELECT 1'" >/dev/null 2>&1; do
+                sleep 3
+              done
+
+              TABLE_EXISTS=$(sh -lc "$${MYSQL_CMD} -Nse \"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$${DB_NAME}' AND table_name='usuarios';\"")
+
+              if [ "$${TABLE_EXISTS}" = "0" ]; then
+                echo "Schema no encontrado. Importando /seed/database.sql..."
+                sh -lc "$${MYSQL_CMD} \"$${DB_NAME}\" < /seed/database.sql"
+                echo "Inicialización completada"
+              else
+                echo "Schema ya inicializado. No se requiere import"
+              fi
+            EOT
+          ]
+
+          volume_mount {
+            name       = "seed-sql"
+            mount_path = "/seed"
+          }
+        }
+
+        volume {
+          name = "seed-sql"
+          config_map {
+            name = kubernetes_config_map.mysql_init_sql.metadata[0].name
+          }
+        }
+      }
+    }
+  }
+
+  wait_for_completion = true
+
+  depends_on = [
+    kubernetes_deployment.mysql,
+    kubernetes_service.mysql
+  ]
+}
+
 resource "kubernetes_deployment" "app" {
+  wait_for_rollout = false
+
   metadata {
     name      = "consulta-medica"
     namespace = kubernetes_namespace.consulta_medica.metadata[0].name
@@ -214,7 +358,7 @@ resource "kubernetes_deployment" "app" {
   }
 
   spec {
-    replicas = 2
+    replicas = var.app_replicas
 
     selector {
       match_labels = {
@@ -233,6 +377,7 @@ resource "kubernetes_deployment" "app" {
         container {
           name  = "consulta-medica"
           image = var.app_image
+          image_pull_policy = var.app_image_pull_policy
 
           port {
             container_port = 80
@@ -289,6 +434,8 @@ resource "kubernetes_deployment" "app" {
 }
 
 resource "kubernetes_service" "app" {
+  wait_for_load_balancer = var.wait_for_load_balancer
+
   metadata {
     name      = "consulta-medica"
     namespace = kubernetes_namespace.consulta_medica.metadata[0].name
@@ -319,9 +466,10 @@ resource "kubernetes_config_map" "prometheus_config" {
   }
 }
 
-resource "kubernetes_cluster_role_binding" "prometheus_admin" {
+resource "kubernetes_role_binding" "prometheus_admin" {
   metadata {
-    name = "prometheus-admin-${var.namespace}"
+    name      = "prometheus-admin-${var.namespace}"
+    namespace = kubernetes_namespace.consulta_medica.metadata[0].name
   }
 
   subject {
@@ -395,6 +543,8 @@ resource "kubernetes_deployment" "prometheus" {
 }
 
 resource "kubernetes_service" "prometheus" {
+  wait_for_load_balancer = var.wait_for_load_balancer
+
   metadata {
     name      = "prometheus"
     namespace = kubernetes_namespace.consulta_medica.metadata[0].name
@@ -483,6 +633,8 @@ resource "kubernetes_deployment" "grafana" {
 }
 
 resource "kubernetes_service" "grafana" {
+  wait_for_load_balancer = var.wait_for_load_balancer
+
   metadata {
     name      = "grafana"
     namespace = kubernetes_namespace.consulta_medica.metadata[0].name
@@ -575,6 +727,8 @@ resource "kubernetes_deployment" "docker_registry" {
 }
 
 resource "kubernetes_service" "docker_registry" {
+  wait_for_load_balancer = var.wait_for_load_balancer
+
   metadata {
     name      = "docker-registry"
     namespace = kubernetes_namespace.consulta_medica.metadata[0].name
@@ -617,9 +771,10 @@ resource "kubernetes_service_account" "jenkins" {
   }
 }
 
-resource "kubernetes_cluster_role_binding" "jenkins_admin" {
+resource "kubernetes_role_binding" "jenkins_admin" {
   metadata {
-    name = "jenkins-admin-${var.namespace}"
+    name      = "jenkins-admin-${var.namespace}"
+    namespace = kubernetes_namespace.consulta_medica.metadata[0].name
   }
 
   subject {
@@ -666,21 +821,6 @@ resource "kubernetes_deployment" "jenkins" {
         container {
           name  = "jenkins"
           image = "jenkins/jenkins:lts-jdk17"
-
-          security_context {
-            run_as_user = 0
-          }
-
-          command = ["/bin/bash", "-lc"]
-          args = [
-            <<-EOT
-            apt-get update && apt-get install -y curl unzip docker.io && \
-            curl -fsSLo /tmp/terraform.zip https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip && \
-            unzip -o /tmp/terraform.zip -d /usr/local/bin && chmod +x /usr/local/bin/terraform && \
-            curl -fsSLo /usr/local/bin/kubectl https://dl.k8s.io/release/v1.29.1/bin/linux/amd64/kubectl && chmod +x /usr/local/bin/kubectl && \
-            /usr/bin/tini -- /usr/local/bin/jenkins.sh
-            EOT
-          ]
 
           port {
             container_port = 8080
@@ -731,6 +871,8 @@ resource "kubernetes_deployment" "jenkins" {
 }
 
 resource "kubernetes_service" "jenkins" {
+  wait_for_load_balancer = var.wait_for_load_balancer
+
   metadata {
     name      = "jenkins"
     namespace = kubernetes_namespace.consulta_medica.metadata[0].name

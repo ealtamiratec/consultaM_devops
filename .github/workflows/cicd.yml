@@ -1,7 +1,14 @@
 name: CI/CD Pipeline - Consulta Médica
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
 
 env:
   REGISTRY: docker.io
