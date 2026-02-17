@@ -26,7 +26,7 @@ jobs:
     name: Build Docker Image
     runs-on: ubuntu-latest
     outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
+      image-ref: ${{ steps.image_ref.outputs.image_ref }}
       image-digest: ${{ steps.build.outputs.digest }}
     
     steps:
@@ -53,6 +53,11 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix={{branch}}-
+
+      - name: Define deploy image reference
+        id: image_ref
+        run: |
+          echo "image_ref=${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:main-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
         id: build
@@ -141,9 +146,9 @@ jobs:
 
       - name: Configure kubectl
         run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
+          mkdir -p "$(dirname "$KUBECONFIG")"
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$KUBECONFIG"
+          chmod 600 "$KUBECONFIG"
 
       - name: Set up Helm
         uses: azure/setup-helm@v3
@@ -153,7 +158,7 @@ jobs:
       - name: Update image in deployment
         run: |
           kubectl set image deployment/consulta-medica \
-            consulta-medica=${{ needs.build.outputs.image-tag }} \
+            consulta-medica=${{ needs.build.outputs.image-ref }} \
             -n consulta-medica \
             --record || echo "Deployment not found, skipping update"
 
@@ -181,9 +186,9 @@ jobs:
 
       - name: Configure kubectl
         run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
+          mkdir -p "$(dirname "$KUBECONFIG")"
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$KUBECONFIG"
+          chmod 600 "$KUBECONFIG"
 
       - name: Get pod metrics
         run: |
