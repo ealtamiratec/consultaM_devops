@@ -83,7 +83,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd app
+          cd app/consulta_medica
           composer install --no-progress --no-suggest 2>/dev/null || echo "No composer.json found"
 
       - name: Run PHP linting
@@ -92,7 +92,7 @@ jobs:
 
       - name: Run basic health check
         run: |
-          cd app/public
+          cd app/consulta_medica/public
           php -S localhost:8080 > /dev/null 2>&1 &
           sleep 2
           curl -f http://localhost:8080/ || echo "App not responding yet"
