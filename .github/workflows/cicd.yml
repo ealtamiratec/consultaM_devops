@@ -3,6 +3,7 @@ name: CI/CD Pipeline - Consulta Médica
 permissions:
   contents: read
   packages: write
+  security-events: write
 
 on:
   push:
@@ -117,8 +118,8 @@ jobs:
           output: 'trivy-results.sarif'
 
       - name: Upload Trivy results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v2
-        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && github.event_name == 'push'
         with:
           sarif_file: 'trivy-results.sarif'
 
