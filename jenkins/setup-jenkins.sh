@@ -17,6 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 JENKINS_URL="${JENKINS_URL:-http://localhost:8080}"
+JENKINS_PUBLIC_URL="${JENKINS_PUBLIC_URL:-$JENKINS_URL}"
 JENKINS_USER="${JENKINS_USER:-admin}"
 JENKINS_PASSWORD="${JENKINS_PASSWORD:-admin}"
 JOB_NAME="${JOB_NAME:-consulta-medica-pipeline}"
@@ -26,6 +27,7 @@ GIT_REPO_URL="${GIT_REPO_URL:-}"
 
 CRUMB_HEADER=""
 COOKIE_JAR="/tmp/jenkins_cookie_$$.txt"
+EFFECTIVE_JOB_NAME="$JOB_NAME"
 
 wait_for_jenkins() {
     log_info "Esperando Jenkins en ${JENKINS_URL}..."
@@ -122,62 +124,122 @@ jenkins_api_post() {
 }
 
 create_or_update_pipeline_job() {
-    log_info "Creando/actualizando Pipeline job ${JOB_NAME}..."
+    log_info "Creando/actualizando job CI/CD ${JOB_NAME}..."
 
     local tmp_xml
     tmp_xml="$(mktemp)"
 
-    cat > "$tmp_xml" <<EOF
+        cat > "$tmp_xml" <<EOF
 <?xml version='1.1' encoding='UTF-8'?>
-<flow-definition plugin="workflow-job">
-  <actions/>
-  <description>Pipeline CI/CD automático para rama ${BRANCH_NAME} (GitHub + Jenkins + Kubernetes)</description>
-  <keepDependencies>false</keepDependencies>
-  <properties/>
-  <definition class="org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition" plugin="workflow-cps">
+<project>
+    <actions/>
+    <description>CI/CD automático para ${BRANCH_NAME} (GitHub - Jenkins - Docker - Kubernetes)</description>
+    <keepDependencies>false</keepDependencies>
+    <properties/>
     <scm class="hudson.plugins.git.GitSCM" plugin="git">
-      <configVersion>2</configVersion>
-      <userRemoteConfigs>
-        <hudson.plugins.git.UserRemoteConfig>
-          <url>${GIT_REPO_URL}</url>
-        </hudson.plugins.git.UserRemoteConfig>
-      </userRemoteConfigs>
-      <branches>
-        <hudson.plugins.git.BranchSpec>
-          <name>*/${BRANCH_NAME}</name>
-        </hudson.plugins.git.BranchSpec>
-      </branches>
-      <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
-      <submoduleCfg class="empty-list"/>
-      <extensions/>
+        <configVersion>2</configVersion>
+        <userRemoteConfigs>
+            <hudson.plugins.git.UserRemoteConfig>
+                <url>${GIT_REPO_URL}</url>
+            </hudson.plugins.git.UserRemoteConfig>
+        </userRemoteConfigs>
+        <branches>
+            <hudson.plugins.git.BranchSpec>
+                <name>*/${BRANCH_NAME}</name>
+            </hudson.plugins.git.BranchSpec>
+        </branches>
+        <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+        <submoduleCfg class="empty-list"/>
+        <extensions>
+            <hudson.plugins.git.extensions.impl.WipeWorkspace/>
+        </extensions>
     </scm>
-    <scriptPath>Jenkinsfile</scriptPath>
-    <lightweight>false</lightweight>
-  </definition>
-  <triggers>
-    <hudson.triggers.SCMTrigger>
-      <spec>${SCM_POLL_SCHEDULE}</spec>
-      <ignorePostCommitHooks>false</ignorePostCommitHooks>
-    </hudson.triggers.SCMTrigger>
-  </triggers>
-  <disabled>false</disabled>
-</flow-definition>
+    <canRoam>true</canRoam>
+    <disabled>false</disabled>
+    <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+    <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+    <triggers>
+        <com.cloudbees.jenkins.GitHubPushTrigger plugin="github">
+            <spec></spec>
+        </com.cloudbees.jenkins.GitHubPushTrigger>
+        <hudson.triggers.SCMTrigger>
+            <spec>${SCM_POLL_SCHEDULE}</spec>
+            <ignorePostCommitHooks>false</ignorePostCommitHooks>
+        </hudson.triggers.SCMTrigger>
+    </triggers>
+    <concurrentBuild>false</concurrentBuild>
+    <builders>
+        <hudson.tasks.Shell>
+            <command><![CDATA[
+set -e
+cd "\$WORKSPACE"
+
+APP_NAME="consulta-medica"
+NAMESPACE="consulta-medica"
+DEPLOYMENT_NAME="consulta-medica"
+LOCAL_IMAGE_REPO="consulta-medica"
+
+find app -name "*.php" -type f | xargs -I {} php -l {}
+test -f app/consulta_medica/public/index.php
+
+SHORT_SHA=\$(git rev-parse --short=7 HEAD)
+BUILD_TAG="build-\${BUILD_NUMBER}"
+SHA_TAG="sha-\${SHORT_SHA}"
+
+IMAGE_REPO="\${LOCAL_IMAGE_REPO}"
+DEPLOY_IMAGE="\${IMAGE_REPO}:\${SHA_TAG}"
+if [ -n "\${DOCKERHUB_USER:-}" ] && [ -n "\${DOCKERHUB_PASS:-}" ]; then
+    IMAGE_REPO="docker.io/\${DOCKERHUB_USER}/\${APP_NAME}"
+    DEPLOY_IMAGE="\${IMAGE_REPO}:\${SHA_TAG}"
+    echo "\${DOCKERHUB_PASS}" | docker login -u "\${DOCKERHUB_USER}" --password-stdin docker.io
+fi
+
+docker build -f docker/Dockerfile -t "\${IMAGE_REPO}:\${BUILD_TAG}" .
+docker tag "\${IMAGE_REPO}:\${BUILD_TAG}" "\${IMAGE_REPO}:\${SHA_TAG}"
+docker tag "\${IMAGE_REPO}:\${BUILD_TAG}" "\${IMAGE_REPO}:latest"
+
+if [ -n "\${DOCKERHUB_USER:-}" ] && [ -n "\${DOCKERHUB_PASS:-}" ]; then
+    docker push "\${IMAGE_REPO}:\${BUILD_TAG}"
+    docker push "\${IMAGE_REPO}:\${SHA_TAG}"
+    docker push "\${IMAGE_REPO}:latest"
+else
+    echo "Sin credenciales Docker Hub: se desplegará imagen local \${DEPLOY_IMAGE}"
+fi
+
+kubectl -n "\${NAMESPACE}" get deployment "\${DEPLOYMENT_NAME}"
+kubectl -n "\${NAMESPACE}" patch deployment "\${DEPLOYMENT_NAME}" --type=json \
+    -p='[{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"IfNotPresent"}]' || true
+kubectl -n "\${NAMESPACE}" set image deployment/"\${DEPLOYMENT_NAME}" "\${APP_NAME}=\${DEPLOY_IMAGE}"
+kubectl -n "\${NAMESPACE}" rollout status deployment/"\${DEPLOYMENT_NAME}" --timeout=5m
+kubectl -n "\${NAMESPACE}" get pods -l app="\${APP_NAME}" -o wide
+
+if [ -n "\${DOCKERHUB_USER:-}" ] && [ -n "\${DOCKERHUB_PASS:-}" ]; then
+    docker logout docker.io || true
+fi
+            ]]></command>
+        </hudson.tasks.Shell>
+    </builders>
+    <publishers/>
+    <buildWrappers/>
+</project>
 EOF
 
     local code
     code="$(curl -s -c "$COOKIE_JAR" -b "$COOKIE_JAR" -o /dev/null -w "%{http_code}" -u "${JENKINS_USER}:${JENKINS_PASSWORD}" "${JENKINS_URL}/job/${JOB_NAME}/api/json" || true)"
+
+    EFFECTIVE_JOB_NAME="$JOB_NAME"
     if [[ "$code" == "200" ]]; then
         jenkins_api_post "${JENKINS_URL}/job/${JOB_NAME}/config.xml" "$tmp_xml"
-        log_success "Pipeline job actualizado"
+        log_success "Job actualizado"
     else
         jenkins_api_post "${JENKINS_URL}/createItem?name=${JOB_NAME}" "$tmp_xml"
-        log_success "Pipeline job creado"
+        log_success "Job creado"
     fi
 
     local verify_code
-    verify_code="$(curl -s -c "$COOKIE_JAR" -b "$COOKIE_JAR" -o /tmp/jenkins_job_verify.out -w "%{http_code}" -u "${JENKINS_USER}:${JENKINS_PASSWORD}" "${JENKINS_URL}/job/${JOB_NAME}/api/json" || true)"
+    verify_code="$(curl -s -c "$COOKIE_JAR" -b "$COOKIE_JAR" -o /tmp/jenkins_job_verify.out -w "%{http_code}" -u "${JENKINS_USER}:${JENKINS_PASSWORD}" "${JENKINS_URL}/job/${EFFECTIVE_JOB_NAME}/api/json" || true)"
     if [[ "$verify_code" != "200" ]]; then
-        log_error "El job ${JOB_NAME} no quedó disponible (HTTP ${verify_code})"
+        log_error "El job ${EFFECTIVE_JOB_NAME} no quedó disponible (HTTP ${verify_code})"
         head -c 500 /tmp/jenkins_job_verify.out || true
         echo ""
         rm -f "$tmp_xml"
@@ -189,8 +251,20 @@ EOF
 
 trigger_first_build() {
     log_info "Disparando build inicial para validar pipeline..."
-    jenkins_api_post "${JENKINS_URL}/job/${JOB_NAME}/build" >/dev/null
+    jenkins_api_post "${JENKINS_URL}/job/${EFFECTIVE_JOB_NAME}/build" >/dev/null
     log_success "Build disparado"
+}
+
+print_webhook_instructions() {
+    local webhook_url
+    webhook_url="${JENKINS_PUBLIC_URL%/}/github-webhook/"
+
+    echo ""
+    log_info "Configura este Webhook en GitHub para disparo inmediato por push:"
+    echo "  URL: ${webhook_url}"
+    echo "  Content type: application/json"
+    echo "  Events: Just the push event"
+    echo ""
 }
 
 main() {
@@ -206,13 +280,14 @@ main() {
     get_crumb
     create_or_update_pipeline_job
     trigger_first_build
+    print_webhook_instructions
 
     echo ""
     log_success "Jenkins listo para CI/CD automático"
     echo "Repo: ${GIT_REPO_URL}"
     echo "Rama: ${BRANCH_NAME}"
     echo "Polling SCM: ${SCM_POLL_SCHEDULE}"
-    echo "Job: ${JENKINS_URL}/job/${JOB_NAME}/"
+    echo "Job: ${JENKINS_URL}/job/${EFFECTIVE_JOB_NAME}/"
     echo ""
 }
 

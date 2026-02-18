@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     php-cli \
     && rm -rf /var/lib/apt/lists/*
 
+RUN git config --system --add safe.directory '*'
+
 RUN ARCH="$(dpkg --print-architecture)" \
     && case "$ARCH" in \
          amd64) DARCH="x86_64" ;; \

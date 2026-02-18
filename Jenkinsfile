@@ -1,16 +1,34 @@
 pipeline {
     agent any
 
+    parameters {
+        choice(
+            name: 'REGISTRY_TARGET',
+            choices: ['local', 'dockerhub'],
+            description: 'Destino de imagen: registry local del cluster o Docker Hub'
+        )
+        string(
+            name: 'DOCKERHUB_NAMESPACE',
+            defaultValue: 'ealtamiratec',
+            description: 'Namespace/usuario de Docker Hub (si REGISTRY_TARGET=dockerhub)'
+        )
+        string(
+            name: 'DOCKERHUB_CREDENTIALS_ID',
+            defaultValue: 'dockerhub-creds',
+            description: 'Credentials ID en Jenkins para Docker Hub'
+        )
+    }
+
     triggers {
-        pollSCM('H/2 * * * *')
+        pollSCM('H/5 * * * *')
     }
 
     environment {
-        IMAGE_NAME = 'consulta-medica'
-        IMAGE_TAG = "${BUILD_NUMBER}"
-        FULL_IMAGE = "${IMAGE_NAME}:${IMAGE_TAG}"
-        LATEST_IMAGE = "${IMAGE_NAME}:latest"
+        APP_NAME = 'consulta-medica'
         NAMESPACE = 'consulta-medica'
+        DEPLOYMENT_NAME = 'consulta-medica'
+        DOCKERFILE_PATH = 'docker/Dockerfile'
+        LOCAL_REGISTRY = 'consulta-medica'
     }
 
     options {
@@ -36,68 +54,73 @@ pipeline {
             }
         }
 
-        stage('Provisionar infraestructura (Terraform)') {
+        stage('Build + Tag imagen') {
+            steps {
+                script {
+                    env.SHORT_SHA = sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()
+                    env.BUILD_TAG = "build-${env.BUILD_NUMBER}"
+                    env.SHA_TAG = "sha-${env.SHORT_SHA}"
+
+                    if (params.REGISTRY_TARGET == 'dockerhub') {
+                        env.IMAGE_REPO = "docker.io/${params.DOCKERHUB_NAMESPACE}/${env.APP_NAME}"
+                    } else {
+                        env.IMAGE_REPO = "${env.LOCAL_REGISTRY}"
+                    }
+
+                    env.DEPLOY_IMAGE = "${env.IMAGE_REPO}:${env.SHA_TAG}"
+
+                    sh '''
+                        set -e
+                        echo "Building ${IMAGE_REPO}:${BUILD_TAG}"
+                        docker build -f ${DOCKERFILE_PATH} -t ${IMAGE_REPO}:${BUILD_TAG} .
+                        docker tag ${IMAGE_REPO}:${BUILD_TAG} ${IMAGE_REPO}:${SHA_TAG}
+                        docker tag ${IMAGE_REPO}:${BUILD_TAG} ${IMAGE_REPO}:latest
+                    '''
+                }
+            }
+        }
+
+        stage('Push imagen') {
+            steps {
+                script {
+                    if (params.REGISTRY_TARGET == 'dockerhub') {
+                        withCredentials([usernamePassword(credentialsId: params.DOCKERHUB_CREDENTIALS_ID, usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASS')]) {
+                            sh '''
+                                set -e
+                                echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin docker.io
+                                docker push ${IMAGE_REPO}:${BUILD_TAG}
+                                docker push ${IMAGE_REPO}:${SHA_TAG}
+                                docker push ${IMAGE_REPO}:latest
+                                docker logout docker.io || true
+                            '''
+                        }
+                    } else {
+                        sh '''
+                            set -e
+                            echo "Modo local: sin push remoto. Se usará imagen local ${IMAGE_REPO}:${SHA_TAG}."
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Deploy Kubernetes (solo app)') {
             steps {
                 sh '''
                     set -e
-                    cd terraform
-                    terraform init -input=false
-
-                    terraform state rm kubernetes_deployment.mysql >/dev/null 2>&1 || true
-                    terraform state rm kubernetes_deployment.app >/dev/null 2>&1 || true
-                    terraform state rm kubernetes_service.docker_registry >/dev/null 2>&1 || true
-
-                    terraform import kubernetes_deployment.mysql "${NAMESPACE}/mysql" >/dev/null 2>&1 || true
-                    terraform import kubernetes_deployment.app "${NAMESPACE}/consulta-medica" >/dev/null 2>&1 || true
-                    terraform import kubernetes_service.docker_registry "${NAMESPACE}/docker-registry" >/dev/null 2>&1 || true
-
-                                        terraform apply -auto-approve -input=false -parallelism=5 \
-                                            -var='kubeconfig_path=' \
-                                            -var='app_replicas=1' \
-                                            -var='app_image=consulta-medica:latest'
+                    kubectl -n ${NAMESPACE} get deployment ${DEPLOYMENT_NAME}
+                    kubectl -n ${NAMESPACE} set image deployment/${DEPLOYMENT_NAME} ${APP_NAME}=${DEPLOY_IMAGE}
+                    kubectl -n ${NAMESPACE} rollout status deployment/${DEPLOYMENT_NAME} --timeout=5m
                 '''
             }
         }
 
-        stage('Build imagen') {
+        stage('Verificación app') {
             steps {
                 sh '''
                     set -e
-                    docker build -t ${FULL_IMAGE} -f docker/Dockerfile .
-                    docker tag ${FULL_IMAGE} ${LATEST_IMAGE}
-                '''
-            }
-        }
-
-        stage('Registro local (omitido en modo local)') {
-            steps {
-                sh '''
-                    echo "Modo local: se omite push al registry."
-                    echo "Se usará imagen local ${LATEST_IMAGE} con imagePullPolicy IfNotPresent."
-                '''
-            }
-        }
-
-        stage('Deploy Kubernetes') {
-            steps {
-                sh '''
-                    set -e
-                    kubectl -n ${NAMESPACE} patch deployment consulta-medica --type=json \
-                      -p='[{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"IfNotPresent"}]' || true
-                    kubectl -n ${NAMESPACE} set image deployment/consulta-medica \
-                        consulta-medica=${LATEST_IMAGE}
-                    kubectl -n ${NAMESPACE} scale deployment/consulta-medica --replicas=1
-                    kubectl -n ${NAMESPACE} rollout status deployment/consulta-medica --timeout=5m
-                '''
-            }
-        }
-
-        stage('Verificación') {
-            steps {
-                sh '''
-                    set -e
-                    kubectl get pods -n ${NAMESPACE}
-                    kubectl get svc -n ${NAMESPACE}
+                    kubectl -n ${NAMESPACE} get deployment ${DEPLOYMENT_NAME} -o wide
+                    kubectl -n ${NAMESPACE} get pods -l app=${APP_NAME} -o wide
                 '''
             }
         }
@@ -105,10 +128,13 @@ pipeline {
 
     post {
         success {
-            echo "Pipeline completado. Imagen desplegada: ${FULL_IMAGE}"
+            echo "Pipeline completado. Imagen desplegada: ${DEPLOY_IMAGE}"
         }
         failure {
-            echo 'Pipeline falló. Revisa logs de Terraform, Docker y kubectl.'
+            echo 'Pipeline falló. Revisa logs de build/push/deploy.'
+        }
+        always {
+            sh 'docker image prune -f || true'
         }
     }
 }
