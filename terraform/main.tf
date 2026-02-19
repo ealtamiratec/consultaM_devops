@@ -463,13 +463,13 @@ resource "kubernetes_config_map" "prometheus_config" {
 
   data = {
     "prometheus.yml" = file("${path.module}/../observability/prometheus/prometheus.yaml")
+    "alerts.yaml"     = file("${path.module}/../observability/prometheus/alerts.yaml")
   }
 }
 
-resource "kubernetes_role_binding" "prometheus_admin" {
+resource "kubernetes_cluster_role_binding" "prometheus_admin" {
   metadata {
-    name      = "prometheus-admin-${var.namespace}"
-    namespace = kubernetes_namespace.consulta_medica.metadata[0].name
+    name = "prometheus-admin-${var.namespace}"
   }
 
   subject {
@@ -526,8 +526,7 @@ resource "kubernetes_deployment" "prometheus" {
 
           volume_mount {
             name       = "prometheus-config"
-            mount_path = "/etc/prometheus/prometheus.yml"
-            sub_path   = "prometheus.yml"
+            mount_path = "/etc/prometheus"
           }
         }
 

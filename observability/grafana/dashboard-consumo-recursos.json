@@ -1,0 +1,93 @@
+{
+  "uid": "consumo-recursos-consulta",
+  "title": "Consumo de Recursos - Consulta Medica y MySQL",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "CPU uso real (cores) por pod",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "__PROM_UID__" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"consulta-medica\",pod=~\"consulta-medica.*|mysql.*\"}[5m]))",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Memoria uso real (MiB) por pod",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "__PROM_UID__" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"consulta-medica\",pod=~\"consulta-medica.*|mysql.*\"}) / 1024 / 1024",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "CPU requests (cores) por pod",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "__PROM_UID__" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pod) (kube_pod_container_resource_requests{namespace=\"consulta-medica\",resource=\"cpu\",pod=~\"consulta-medica.*|mysql.*\"})",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Memoria requests (MiB) por pod",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "__PROM_UID__" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pod) (kube_pod_container_resource_requests{namespace=\"consulta-medica\",resource=\"memory\",pod=~\"consulta-medica.*|mysql.*\"}) / 1024 / 1024",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "CPU limits (cores) por pod",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "__PROM_UID__" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pod) (kube_pod_container_resource_limits{namespace=\"consulta-medica\",resource=\"cpu\",pod=~\"consulta-medica.*|mysql.*\"})",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Memoria limits (MiB) por pod",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "__PROM_UID__" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pod) (kube_pod_container_resource_limits{namespace=\"consulta-medica\",resource=\"memory\",pod=~\"consulta-medica.*|mysql.*\"}) / 1024 / 1024",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    }
+  ]
+}

@@ -48,6 +48,9 @@ data:
     global:
       scrape_interval: 15s
       evaluation_interval: 15s
+
+    rule_files:
+      - /etc/prometheus/alerts.yaml
     scrape_configs:
       - job_name: 'kubernetes-apiservers'
         kubernetes_sd_configs:
@@ -66,6 +69,7 @@ data:
         scheme: https
         tls_config:
           ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: true
         bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
       - job_name: 'kubernetes-pods'
         kubernetes_sd_configs:
@@ -83,3 +87,66 @@ data:
             regex: ([^:]+)(?::\d+)?;(\d+)
             replacement: $1:$2
             target_label: __address__
+
+      - job_name: 'prometheus-self'
+        static_configs:
+          - targets: ['localhost:9090']
+
+      - job_name: 'grafana'
+        metrics_path: /metrics
+        static_configs:
+          - targets: ['grafana.consulta-medica.svc.cluster.local:3000']
+
+      - job_name: 'kube-state-metrics'
+        static_configs:
+          - targets: ['kube-state-metrics.consulta-medica.svc.cluster.local:8080']
+
+      - job_name: 'kubernetes-cadvisor'
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: __metrics_path__
+            regex: (.+)
+            replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
+  alerts.yaml: |
+    groups:
+      - name: consulta-medica-pods
+        rules:
+          - alert: ConsultaMedicaPodNotReady
+            expr: sum(kube_pod_status_ready{namespace="consulta-medica",pod=~"consulta-medica.*",condition="true"}) < 1
+            for: 2m
+            labels:
+              severity: warning
+              service: consulta-medica
+            annotations:
+              summary: "Pod de consulta-medica no disponible"
+              description: "No hay pods Ready para consulta-medica en el namespace consulta-medica durante más de 2 minutos."
+
+          - alert: MySQLPodNotReady
+            expr: sum(kube_pod_status_ready{namespace="consulta-medica",pod=~"mysql.*",condition="true"}) < 1
+            for: 2m
+            labels:
+              severity: critical
+              service: mysql
+            annotations:
+              summary: "Pod de MySQL no disponible"
+              description: "No hay pods Ready para mysql en el namespace consulta-medica durante más de 2 minutos."
+
+          - alert: HighContainerRestartsConsultaMysql
+            expr: increase(kube_pod_container_status_restarts_total{namespace="consulta-medica",pod=~"consulta-medica.*|mysql.*"}[10m]) > 1
+            for: 5m
+            labels:
+              severity: warning
+              service: consulta-medica-mysql
+            annotations:
+              summary: "Reinicios altos en contenedores críticos"
+              description: "Se detectaron reinicios de contenedores en consulta-medica/mysql (>1 en 10m) durante al menos 5 minutos."

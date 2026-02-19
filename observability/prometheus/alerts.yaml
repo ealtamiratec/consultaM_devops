@@ -1,0 +1,32 @@
+groups:
+  - name: consulta-medica-pods
+    rules:
+      - alert: ConsultaMedicaPodNotReady
+        expr: sum(kube_pod_status_ready{namespace="consulta-medica",pod=~"consulta-medica.*",condition="true"}) < 1
+        for: 2m
+        labels:
+          severity: warning
+          service: consulta-medica
+        annotations:
+          summary: "Pod de consulta-medica no disponible"
+          description: "No hay pods Ready para consulta-medica en el namespace consulta-medica durante más de 2 minutos."
+
+      - alert: MySQLPodNotReady
+        expr: sum(kube_pod_status_ready{namespace="consulta-medica",pod=~"mysql.*",condition="true"}) < 1
+        for: 2m
+        labels:
+          severity: critical
+          service: mysql
+        annotations:
+          summary: "Pod de MySQL no disponible"
+          description: "No hay pods Ready para mysql en el namespace consulta-medica durante más de 2 minutos."
+
+      - alert: HighContainerRestartsConsultaMysql
+        expr: increase(kube_pod_container_status_restarts_total{namespace="consulta-medica",pod=~"consulta-medica.*|mysql.*"}[10m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: consulta-medica-mysql
+        annotations:
+          summary: "Reinicios altos en contenedores críticos"
+          description: "Se detectaron reinicios de contenedores en consulta-medica/mysql (>1 en 10m) durante al menos 5 minutos."
