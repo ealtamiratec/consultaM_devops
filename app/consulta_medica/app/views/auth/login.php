@@ -14,7 +14,7 @@
                 <div class="login-logo">
                     <i class="fas fa-hospital"></i>
                 </div>
-                <h1 class="login-title">HOSPITAL BASICO</h1>
+                <h1 class="login-title">HOSPITAL BASICO PLAYAS</h1>
                 <p class="login-subtitle">Sistema de Atención Integral de Salud</p>
             </div>
 
