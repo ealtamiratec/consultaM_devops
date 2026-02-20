@@ -88,6 +88,40 @@
           "legendFormat": "{{pod}}"
         }
       ]
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Alertas activas (count)",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "__PROM_UID__" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(ALERTS{namespace=\"consulta-medica\",alertname=~\"ConsultaMedicaPodNotReady|MySQLPodNotReady|HighContainerRestartsConsultaMysql\",alertstate=~\"pending|firing\"}) or on() vector(0)"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false,
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Estado de alertas (reglas críticas)",
+      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "__PROM_UID__" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ALERTS{namespace=\"consulta-medica\",alertname=~\"ConsultaMedicaPodNotReady|MySQLPodNotReady|HighContainerRestartsConsultaMysql\",alertstate=~\"pending|firing\"}",
+          "legendFormat": "{{alertname}} ({{alertstate}})"
+        }
+      ]
     }
   ]
 }

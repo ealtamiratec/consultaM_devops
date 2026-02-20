@@ -1,0 +1,14 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Validar alerta temporal",
+			"type": "shell",
+			"command": "python3",
+			"args": [
+				"-c",
+				"import json,urllib.request,urllib.parse,base64,time; r=json.load(urllib.request.urlopen('http://localhost:9090/api/v1/rules',timeout=20)); txt=json.dumps(r); print('rule_loaded=', 'PruebaAlertaGrafana' in txt); fired=False; \nfor _ in range(20):\n d=json.load(urllib.request.urlopen('http://localhost:9090/api/v1/alerts',timeout=20)); a=[x for x in d.get('data',{}).get('alerts',[]) if x.get('labels',{}).get('alertname')=='PruebaAlertaGrafana'];\n if a and any(x.get('state')=='firing' for x in a): fired=True; break\n time.sleep(3)\nprint('firing=',fired); auth='Basic '+base64.b64encode(b'admin:admin').decode(); ds=json.load(urllib.request.urlopen(urllib.request.Request('http://localhost:3000/api/datasources',headers={'Authorization':auth}),timeout=20)); uid=next(x['uid'] for x in ds if x.get('type')=='prometheus'); q='ALERTS{alertname=\"PruebaAlertaGrafana\"}'; url='http://localhost:3000/api/datasources/proxy/uid/'+uid+'/api/v1/query?query='+urllib.parse.quote(q,safe=''); g=json.load(urllib.request.urlopen(urllib.request.Request(url,headers={'Authorization':auth}),timeout=20)); print('grafana_series=',len(g.get('data',{}).get('result',[])))"
+			]
+		}
+	]
+}
