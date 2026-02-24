@@ -1,0 +1,2 @@
+NAME              READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS        IMAGES                                  SELECTOR
+consulta-medica   1/1     1            1           6d    consulta-medica   consulta-medica:evid-20260222T225745Z   app=consulta-medica

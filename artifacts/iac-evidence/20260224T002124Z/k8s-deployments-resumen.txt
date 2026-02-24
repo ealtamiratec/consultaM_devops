@@ -1,0 +1,6 @@
+NAME              REPLICAS   STRATEGY        READY
+consulta-medica   1          RollingUpdate   1
+mysql             1          RollingUpdate   1
+prometheus        1          RollingUpdate   1
+grafana           1          RollingUpdate   1
+jenkins           1          RollingUpdate   1

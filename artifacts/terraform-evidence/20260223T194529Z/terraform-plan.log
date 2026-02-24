@@ -1,0 +1,1690 @@
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # kubernetes_cluster_role_binding.prometheus_admin will be created
+  + resource "kubernetes_cluster_role_binding" "prometheus_admin" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "prometheus-admin-consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + role_ref {
+          + api_group = "rbac.authorization.k8s.io"
+          + kind      = "ClusterRole"
+          + name      = "cluster-admin"
+        }
+
+      + subject {
+          + api_group = (known after apply)
+          + kind      = "ServiceAccount"
+          + name      = "default"
+          + namespace = "consulta-medica"
+        }
+    }
+
+  # kubernetes_config_map.app_config will be created
+  + resource "kubernetes_config_map" "app_config" {
+      + data = {
+          + "APP_BASE_PATH" = null
+          + "APP_ENV"       = "production"
+          + "APP_URL"       = "http://localhost"
+          + "DB_DATABASE"   = "consulta_medica"
+          + "DB_HOST"       = "mysql"
+          + "DB_PORT"       = "3306"
+          + "DB_USER"       = "consulta_app"
+        }
+      + id   = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "app-config"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_config_map.grafana_datasource will be created
+  + resource "kubernetes_config_map" "grafana_datasource" {
+      + data = {
+          + "prometheus.yaml" = <<-EOT
+                apiVersion: 1
+                datasources:
+                  - name: Prometheus
+                    type: prometheus
+                    access: proxy
+                    url: http://prometheus:9090
+                    isDefault: true
+            EOT
+        }
+      + id   = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "grafana-datasource"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_config_map.mysql_init_sql will be created
+  + resource "kubernetes_config_map" "mysql_init_sql" {
+      + data = {
+          + "database.sql" = <<-EOT
+                -- =====================================================
+                -- Sistema de Atención Médica - Consulta Externa
+                -- Base de Datos MySQL
+                -- =====================================================
+                
+                -- Crear base de datos
+                CREATE DATABASE IF NOT EXISTS consulta_medica 
+                CHARACTER SET utf8mb4 
+                COLLATE utf8mb4_unicode_ci;
+                
+                USE consulta_medica;
+                
+                -- =====================================================
+                -- Tabla de Usuarios (para autenticación)
+                -- =====================================================
+                CREATE TABLE IF NOT EXISTS usuarios (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    username VARCHAR(50) NOT NULL UNIQUE,
+                    email VARCHAR(100) NOT NULL UNIQUE,
+                    password VARCHAR(255) NOT NULL,
+                    nombre_completo VARCHAR(150) NOT NULL,
+                    rol ENUM('admin', 'medico', 'recepcionista') NOT NULL DEFAULT 'recepcionista',
+                    activo TINYINT(1) NOT NULL DEFAULT 1,
+                    ultimo_acceso DATETIME NULL,
+                    token_recuperacion VARCHAR(100) NULL,
+                    token_expiracion DATETIME NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_username (username),
+                    INDEX idx_email (email),
+                    INDEX idx_rol (rol)
+                ) ENGINE=InnoDB;
+                
+                -- =====================================================
+                -- Tabla de Pacientes
+                -- =====================================================
+                CREATE TABLE IF NOT EXISTS pacientes (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    numero_historia VARCHAR(20) NOT NULL UNIQUE,
+                    tipo_documento ENUM('DNI', 'CE', 'Pasaporte', 'Otro') NOT NULL DEFAULT 'DNI',
+                    numero_documento VARCHAR(20) NOT NULL UNIQUE,
+                    nombres VARCHAR(100) NOT NULL,
+                    apellido_paterno VARCHAR(50) NOT NULL,
+                    apellido_materno VARCHAR(50) NULL,
+                    fecha_nacimiento DATE NOT NULL,
+                    sexo ENUM('M', 'F', 'Otro') NOT NULL,
+                    estado_civil ENUM('Soltero', 'Casado', 'Divorciado', 'Viudo', 'Conviviente') NULL,
+                    direccion VARCHAR(255) NULL,
+                    telefono VARCHAR(20) NULL,
+                    email VARCHAR(100) NULL,
+                    grupo_sanguineo VARCHAR(5) NULL,
+                    alergias TEXT NULL,
+                    antecedentes TEXT NULL,
+                    contacto_emergencia VARCHAR(100) NULL,
+                    telefono_emergencia VARCHAR(20) NULL,
+                    activo TINYINT(1) NOT NULL DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_numero_historia (numero_historia),
+                    INDEX idx_documento (tipo_documento, numero_documento),
+                    INDEX idx_nombres (nombres, apellido_paterno)
+                ) ENGINE=InnoDB;
+                
+                -- =====================================================
+                -- Tabla de Especialidades Médicas
+                -- =====================================================
+                CREATE TABLE IF NOT EXISTS especialidades (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    nombre VARCHAR(100) NOT NULL UNIQUE,
+                    descripcion TEXT NULL,
+                    activo TINYINT(1) NOT NULL DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB;
+                
+                -- =====================================================
+                -- Tabla de Médicos
+                -- =====================================================
+                CREATE TABLE IF NOT EXISTS medicos (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    usuario_id INT NULL,
+                    codigo_medico VARCHAR(20) NOT NULL UNIQUE,
+                    numero_colegiatura VARCHAR(20) NOT NULL UNIQUE,
+                    nombres VARCHAR(100) NOT NULL,
+                    apellido_paterno VARCHAR(50) NOT NULL,
+                    apellido_materno VARCHAR(50) NULL,
+                    especialidad_id INT NOT NULL,
+                    telefono VARCHAR(20) NULL,
+                    email VARCHAR(100) NULL,
+                    horario_atencion VARCHAR(255) NULL,
+                    activo TINYINT(1) NOT NULL DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+                    FOREIGN KEY (especialidad_id) REFERENCES especialidades(id) ON DELETE RESTRICT,
+                    INDEX idx_codigo_medico (codigo_medico),
+                    INDEX idx_colegiatura (numero_colegiatura),
+                    INDEX idx_especialidad (especialidad_id)
+                ) ENGINE=InnoDB;
+                
+                -- =====================================================
+                -- Tabla de Consultas Médicas (Atenciones)
+                -- =====================================================
+                CREATE TABLE IF NOT EXISTS consultas (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    numero_consulta VARCHAR(20) NOT NULL UNIQUE,
+                    paciente_id INT NOT NULL,
+                    medico_id INT NOT NULL,
+                    fecha_consulta DATE NOT NULL,
+                    hora_consulta TIME NOT NULL,
+                    tipo_consulta ENUM('Primera vez', 'Control', 'Emergencia', 'Referencia') NOT NULL DEFAULT 'Primera vez',
+                    estado ENUM('Programada', 'En espera', 'En atención', 'Atendida', 'Cancelada', 'No asistió') NOT NULL DEFAULT 'Programada',
+                    motivo_consulta TEXT NOT NULL,
+                    sintomas TEXT NULL,
+                    examen_fisico TEXT NULL,
+                    diagnostico TEXT NULL,
+                    tratamiento TEXT NULL,
+                    observaciones TEXT NULL,
+                    proxima_cita DATE NULL,
+                    usuario_registro_id INT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE RESTRICT,
+                    FOREIGN KEY (medico_id) REFERENCES medicos(id) ON DELETE RESTRICT,
+                    FOREIGN KEY (usuario_registro_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+                    INDEX idx_numero_consulta (numero_consulta),
+                    INDEX idx_paciente (paciente_id),
+                    INDEX idx_medico (medico_id),
+                    INDEX idx_fecha (fecha_consulta),
+                    INDEX idx_estado (estado)
+                ) ENGINE=InnoDB;
+                
+                -- =====================================================
+                -- Tabla de Signos Vitales
+                -- =====================================================
+                CREATE TABLE IF NOT EXISTS signos_vitales (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    consulta_id INT NOT NULL,
+                    presion_sistolica INT NULL,
+                    presion_diastolica INT NULL,
+                    frecuencia_cardiaca INT NULL,
+                    frecuencia_respiratoria INT NULL,
+                    temperatura DECIMAL(4,2) NULL,
+                    peso DECIMAL(5,2) NULL,
+                    talla DECIMAL(4,2) NULL,
+                    imc DECIMAL(4,2) NULL,
+                    saturacion_oxigeno INT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (consulta_id) REFERENCES consultas(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB;
+                
+                -- =====================================================
+                -- Tabla de Logs de Auditoría
+                -- =====================================================
+                CREATE TABLE IF NOT EXISTS audit_logs (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    usuario_id INT NULL,
+                    accion VARCHAR(50) NOT NULL,
+                    tabla_afectada VARCHAR(50) NOT NULL,
+                    registro_id INT NULL,
+                    datos_anteriores JSON NULL,
+                    datos_nuevos JSON NULL,
+                    ip_address VARCHAR(45) NULL,
+                    user_agent TEXT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_usuario (usuario_id),
+                    INDEX idx_accion (accion),
+                    INDEX idx_tabla (tabla_afectada),
+                    INDEX idx_fecha (created_at)
+                ) ENGINE=InnoDB;
+                
+                -- =====================================================
+                -- Datos Iniciales
+                -- =====================================================
+                
+                -- Insertar especialidades médicas básicas
+                INSERT INTO especialidades (nombre, descripcion) VALUES
+                ('Medicina General', 'Atención médica primaria y preventiva'),
+                ('Pediatría', 'Atención médica para niños y adolescentes'),
+                ('Ginecología', 'Salud reproductiva femenina'),
+                ('Cardiología', 'Enfermedades del corazón y sistema cardiovascular'),
+                ('Dermatología', 'Enfermedades de la piel'),
+                ('Traumatología', 'Lesiones del sistema músculo-esquelético'),
+                ('Oftalmología', 'Enfermedades de los ojos'),
+                ('Otorrinolaringología', 'Enfermedades de oído, nariz y garganta'),
+                ('Neurología', 'Enfermedades del sistema nervioso'),
+                ('Psiquiatría', 'Trastornos mentales y emocionales');
+                
+                -- Insertar usuario administrador por defecto
+                -- Password: Admin123! (hasheado con password_hash de PHP)
+                INSERT INTO usuarios (username, email, password, nombre_completo, rol) VALUES
+                ('admin', 'admin@consultamedica.local', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrador del Sistema', 'admin');
+                
+                -- Insertar médico de ejemplo
+                INSERT INTO medicos (codigo_medico, numero_colegiatura, nombres, apellido_paterno, apellido_materno, especialidad_id, telefono, email) VALUES
+                ('MED001', 'CMP-12345', 'Juan Carlos', 'García', 'López', 1, '999888777', 'jgarcia@consultamedica.local');
+                
+                -- Insertar paciente de ejemplo
+                INSERT INTO pacientes (numero_historia, tipo_documento, numero_documento, nombres, apellido_paterno, apellido_materno, fecha_nacimiento, sexo, direccion, telefono) VALUES
+                ('HC-000001', 'DNI', '12345678', 'María Elena', 'Rodríguez', 'Sánchez', '1985-03-15', 'F', 'Av. Principal 123', '987654321');
+            EOT
+        }
+      + id   = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "mysql-init-sql"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_config_map.prometheus_config will be created
+  + resource "kubernetes_config_map" "prometheus_config" {
+      + data = {
+          + "alerts.yaml"    = <<-EOT
+                groups:
+                  - name: consulta-medica-pods
+                    rules:
+                      - alert: ConsultaMedicaPodNotReady
+                        expr: sum(kube_pod_status_ready{namespace="consulta-medica",pod=~"consulta-medica.*",condition="true"}) < 1
+                        for: 2m
+                        labels:
+                          severity: warning
+                          service: consulta-medica
+                        annotations:
+                          summary: "Pod de consulta-medica no disponible"
+                          description: "No hay pods Ready para consulta-medica en el namespace consulta-medica durante más de 2 minutos."
+                
+                      - alert: MySQLPodNotReady
+                        expr: sum(kube_pod_status_ready{namespace="consulta-medica",pod=~"mysql.*",condition="true"}) < 1
+                        for: 2m
+                        labels:
+                          severity: critical
+                          service: mysql
+                        annotations:
+                          summary: "Pod de MySQL no disponible"
+                          description: "No hay pods Ready para mysql en el namespace consulta-medica durante más de 2 minutos."
+                
+                      - alert: HighContainerRestartsConsultaMysql
+                        expr: increase(kube_pod_container_status_restarts_total{namespace="consulta-medica",pod=~"consulta-medica.*|mysql.*"}[10m]) > 1
+                        for: 5m
+                        labels:
+                          severity: warning
+                          service: consulta-medica-mysql
+                        annotations:
+                          summary: "Reinicios altos en contenedores críticos"
+                          description: "Se detectaron reinicios de contenedores en consulta-medica/mysql (>1 en 10m) durante al menos 5 minutos."
+            EOT
+          + "prometheus.yml" = <<-EOT
+                global:
+                  scrape_interval: 15s
+                  evaluation_interval: 15s
+                
+                rule_files:
+                  - /etc/prometheus/alerts.yaml
+                
+                scrape_configs:
+                  - job_name: 'kubernetes-apiservers'
+                    kubernetes_sd_configs:
+                      - role: endpoints
+                    scheme: https
+                    tls_config:
+                      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+                    relabel_configs:
+                      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+                        action: keep
+                        regex: default;kubernetes;https
+                
+                  - job_name: 'kubernetes-nodes'
+                    kubernetes_sd_configs:
+                      - role: node
+                    scheme: https
+                    tls_config:
+                      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                      insecure_skip_verify: true
+                    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+                    relabel_configs:
+                      - action: labelmap
+                        regex: __meta_kubernetes_node_label_(.+)
+                
+                  - job_name: 'kubernetes-pods'
+                    kubernetes_sd_configs:
+                      - role: pod
+                    relabel_configs:
+                      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+                        action: keep
+                        regex: 'true'
+                      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+                        action: replace
+                        target_label: __metrics_path__
+                        regex: (.+)
+                      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+                        action: replace
+                        regex: ([^:]+)(?::\d+)?;(\d+)
+                        replacement: $1:$2
+                        target_label: __address__
+                      - action: labelmap
+                        regex: __meta_kubernetes_pod_label_(.+)
+                      - source_labels: [__meta_kubernetes_namespace]
+                        action: replace
+                        target_label: kubernetes_namespace
+                      - source_labels: [__meta_kubernetes_pod_name]
+                        action: replace
+                        target_label: kubernetes_pod_name
+                
+                  - job_name: 'prometheus-self'
+                    static_configs:
+                      - targets: ['localhost:9090']
+                
+                  - job_name: 'grafana'
+                    metrics_path: /metrics
+                    static_configs:
+                      - targets: ['grafana.consulta-medica.svc.cluster.local:3000']
+                
+                  - job_name: 'kube-state-metrics'
+                    static_configs:
+                      - targets: ['kube-state-metrics.consulta-medica.svc.cluster.local:8080']
+                
+                  - job_name: 'kubernetes-cadvisor'
+                    scheme: https
+                    tls_config:
+                      insecure_skip_verify: true
+                    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+                    kubernetes_sd_configs:
+                      - role: node
+                    relabel_configs:
+                      - action: labelmap
+                        regex: __meta_kubernetes_node_label_(.+)
+                      - target_label: __address__
+                        replacement: kubernetes.default.svc:443
+                      - source_labels: [__meta_kubernetes_node_name]
+                        target_label: __metrics_path__
+                        regex: (.+)
+                        replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
+            EOT
+        }
+      + id   = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "prometheus-config"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_deployment.app will be created
+  + resource "kubernetes_deployment" "app" {
+      + id               = (known after apply)
+      + wait_for_rollout = false
+
+      + metadata {
+          + generation       = (known after apply)
+          + labels           = {
+              + "app" = "consulta-medica"
+            }
+          + name             = "consulta-medica"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + min_ready_seconds         = 0
+          + paused                    = false
+          + progress_deadline_seconds = 600
+          + replicas                  = "1"
+          + revision_history_limit    = 10
+
+          + selector {
+              + match_labels = {
+                  + "app" = "consulta-medica"
+                }
+            }
+
+          + strategy (known after apply)
+
+          + template {
+              + metadata {
+                  + generation       = (known after apply)
+                  + labels           = {
+                      + "app" = "consulta-medica"
+                    }
+                  + name             = (known after apply)
+                  + resource_version = (known after apply)
+                  + uid              = (known after apply)
+                }
+              + spec {
+                  + automount_service_account_token  = true
+                  + dns_policy                       = "ClusterFirst"
+                  + enable_service_links             = true
+                  + host_ipc                         = false
+                  + host_network                     = false
+                  + host_pid                         = false
+                  + hostname                         = (known after apply)
+                  + node_name                        = (known after apply)
+                  + restart_policy                   = "Always"
+                  + scheduler_name                   = (known after apply)
+                  + service_account_name             = (known after apply)
+                  + share_process_namespace          = false
+                  + termination_grace_period_seconds = 30
+
+                  + container {
+                      + image                      = "consulta-medica:fix-mbstring"
+                      + image_pull_policy          = "IfNotPresent"
+                      + name                       = "consulta-medica"
+                      + stdin                      = false
+                      + stdin_once                 = false
+                      + termination_message_path   = "/dev/termination-log"
+                      + termination_message_policy = (known after apply)
+                      + tty                        = false
+
+                      + env {
+                          + name = "DB_PASSWORD"
+
+                          + value_from {
+                              + secret_key_ref {
+                                  + key  = "DB_PASSWORD"
+                                  + name = "db-secret"
+                                }
+                            }
+                        }
+
+                      + env_from {
+                          + config_map_ref {
+                              + name = "app-config"
+                            }
+                        }
+
+                      + liveness_probe {
+                          + failure_threshold     = 3
+                          + initial_delay_seconds = 30
+                          + period_seconds        = 10
+                          + success_threshold     = 1
+                          + timeout_seconds       = 1
+
+                          + http_get {
+                              + path   = "/health.php"
+                              + port   = "80"
+                              + scheme = "HTTP"
+                            }
+                        }
+
+                      + port {
+                          + container_port = 80
+                          + protocol       = "TCP"
+                        }
+
+                      + readiness_probe {
+                          + failure_threshold     = 3
+                          + initial_delay_seconds = 10
+                          + period_seconds        = 5
+                          + success_threshold     = 1
+                          + timeout_seconds       = 1
+
+                          + http_get {
+                              + path   = "/health.php"
+                              + port   = "80"
+                              + scheme = "HTTP"
+                            }
+                        }
+
+                      + resources {
+                          + limits   = {
+                              + "cpu"    = "500m"
+                              + "memory" = "512Mi"
+                            }
+                          + requests = {
+                              + "cpu"    = "100m"
+                              + "memory" = "128Mi"
+                            }
+                        }
+                    }
+
+                  + image_pull_secrets (known after apply)
+
+                  + readiness_gate (known after apply)
+                }
+            }
+        }
+    }
+
+  # kubernetes_deployment.docker_registry will be created
+  + resource "kubernetes_deployment" "docker_registry" {
+      + id               = (known after apply)
+      + wait_for_rollout = true
+
+      + metadata {
+          + generation       = (known after apply)
+          + labels           = {
+              + "app" = "docker-registry"
+            }
+          + name             = "docker-registry"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + min_ready_seconds         = 0
+          + paused                    = false
+          + progress_deadline_seconds = 600
+          + replicas                  = "1"
+          + revision_history_limit    = 10
+
+          + selector {
+              + match_labels = {
+                  + "app" = "docker-registry"
+                }
+            }
+
+          + strategy (known after apply)
+
+          + template {
+              + metadata {
+                  + generation       = (known after apply)
+                  + labels           = {
+                      + "app" = "docker-registry"
+                    }
+                  + name             = (known after apply)
+                  + resource_version = (known after apply)
+                  + uid              = (known after apply)
+                }
+              + spec {
+                  + automount_service_account_token  = true
+                  + dns_policy                       = "ClusterFirst"
+                  + enable_service_links             = true
+                  + host_ipc                         = false
+                  + host_network                     = false
+                  + host_pid                         = false
+                  + hostname                         = (known after apply)
+                  + node_name                        = (known after apply)
+                  + restart_policy                   = "Always"
+                  + scheduler_name                   = (known after apply)
+                  + service_account_name             = (known after apply)
+                  + share_process_namespace          = false
+                  + termination_grace_period_seconds = 30
+
+                  + container {
+                      + image                      = "registry:2"
+                      + image_pull_policy          = (known after apply)
+                      + name                       = "docker-registry"
+                      + stdin                      = false
+                      + stdin_once                 = false
+                      + termination_message_path   = "/dev/termination-log"
+                      + termination_message_policy = (known after apply)
+                      + tty                        = false
+
+                      + env {
+                          + name  = "REGISTRY_STORAGE_DELETE_ENABLED"
+                          + value = "true"
+                        }
+
+                      + port {
+                          + container_port = 5000
+                          + protocol       = "TCP"
+                        }
+
+                      + resources (known after apply)
+
+                      + volume_mount {
+                          + mount_path        = "/var/lib/registry"
+                          + mount_propagation = "None"
+                          + name              = "registry-storage"
+                          + read_only         = false
+                        }
+                    }
+
+                  + image_pull_secrets (known after apply)
+
+                  + readiness_gate (known after apply)
+
+                  + volume {
+                      + name = "registry-storage"
+
+                      + persistent_volume_claim {
+                          + claim_name = "docker-registry-pvc"
+                          + read_only  = false
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+  # kubernetes_deployment.grafana will be created
+  + resource "kubernetes_deployment" "grafana" {
+      + id               = (known after apply)
+      + wait_for_rollout = true
+
+      + metadata {
+          + generation       = (known after apply)
+          + labels           = {
+              + "app" = "grafana"
+            }
+          + name             = "grafana"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + min_ready_seconds         = 0
+          + paused                    = false
+          + progress_deadline_seconds = 600
+          + replicas                  = "1"
+          + revision_history_limit    = 10
+
+          + selector {
+              + match_labels = {
+                  + "app" = "grafana"
+                }
+            }
+
+          + strategy (known after apply)
+
+          + template {
+              + metadata {
+                  + generation       = (known after apply)
+                  + labels           = {
+                      + "app" = "grafana"
+                    }
+                  + name             = (known after apply)
+                  + resource_version = (known after apply)
+                  + uid              = (known after apply)
+                }
+              + spec {
+                  + automount_service_account_token  = true
+                  + dns_policy                       = "ClusterFirst"
+                  + enable_service_links             = true
+                  + host_ipc                         = false
+                  + host_network                     = false
+                  + host_pid                         = false
+                  + hostname                         = (known after apply)
+                  + node_name                        = (known after apply)
+                  + restart_policy                   = "Always"
+                  + scheduler_name                   = (known after apply)
+                  + service_account_name             = (known after apply)
+                  + share_process_namespace          = false
+                  + termination_grace_period_seconds = 30
+
+                  + container {
+                      + image                      = "grafana/grafana:latest"
+                      + image_pull_policy          = (known after apply)
+                      + name                       = "grafana"
+                      + stdin                      = false
+                      + stdin_once                 = false
+                      + termination_message_path   = "/dev/termination-log"
+                      + termination_message_policy = (known after apply)
+                      + tty                        = false
+
+                      + env {
+                          + name  = "GF_SECURITY_ADMIN_PASSWORD"
+                          + value = "admin"
+                        }
+
+                      + port {
+                          + container_port = 3000
+                          + protocol       = "TCP"
+                        }
+
+                      + resources (known after apply)
+
+                      + volume_mount {
+                          + mount_path        = "/etc/grafana/provisioning/datasources/prometheus.yaml"
+                          + mount_propagation = "None"
+                          + name              = "grafana-datasource"
+                          + read_only         = false
+                          + sub_path          = "prometheus.yaml"
+                        }
+                    }
+
+                  + image_pull_secrets (known after apply)
+
+                  + readiness_gate (known after apply)
+
+                  + volume {
+                      + name = "grafana-datasource"
+
+                      + config_map {
+                          + default_mode = "0644"
+                          + name         = "grafana-datasource"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+  # kubernetes_deployment.jenkins will be created
+  + resource "kubernetes_deployment" "jenkins" {
+      + id               = (known after apply)
+      + wait_for_rollout = true
+
+      + metadata {
+          + generation       = (known after apply)
+          + labels           = {
+              + "app" = "jenkins"
+            }
+          + name             = "jenkins"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + min_ready_seconds         = 0
+          + paused                    = false
+          + progress_deadline_seconds = 600
+          + replicas                  = "1"
+          + revision_history_limit    = 10
+
+          + selector {
+              + match_labels = {
+                  + "app" = "jenkins"
+                }
+            }
+
+          + strategy (known after apply)
+
+          + template {
+              + metadata {
+                  + generation       = (known after apply)
+                  + labels           = {
+                      + "app" = "jenkins"
+                    }
+                  + name             = (known after apply)
+                  + resource_version = (known after apply)
+                  + uid              = (known after apply)
+                }
+              + spec {
+                  + automount_service_account_token  = true
+                  + dns_policy                       = "ClusterFirst"
+                  + enable_service_links             = true
+                  + host_ipc                         = false
+                  + host_network                     = false
+                  + host_pid                         = false
+                  + hostname                         = (known after apply)
+                  + node_name                        = (known after apply)
+                  + restart_policy                   = "Always"
+                  + scheduler_name                   = (known after apply)
+                  + service_account_name             = "jenkins"
+                  + share_process_namespace          = false
+                  + termination_grace_period_seconds = 30
+
+                  + container {
+                      + image                      = "consulta-jenkins:local"
+                      + image_pull_policy          = "IfNotPresent"
+                      + name                       = "jenkins"
+                      + stdin                      = false
+                      + stdin_once                 = false
+                      + termination_message_path   = "/dev/termination-log"
+                      + termination_message_policy = (known after apply)
+                      + tty                        = false
+
+                      + env {
+                          + name  = "JAVA_OPTS"
+                          + value = "-Xmx1024m -Xms512m -Djenkins.install.runSetupWizard=false"
+                        }
+                      + env {
+                          + name  = "JENKINS_OPTS"
+                          + value = "--argumentsRealm.passwd.admin=admin --argumentsRealm.roles.admin=admin"
+                        }
+
+                      + port {
+                          + container_port = 8080
+                          + protocol       = "TCP"
+                        }
+                      + port {
+                          + container_port = 50000
+                          + protocol       = "TCP"
+                        }
+
+                      + resources (known after apply)
+
+                      + security_context {
+                          + allow_privilege_escalation = true
+                          + privileged                 = true
+                          + read_only_root_filesystem  = false
+                          + run_as_group               = "0"
+                          + run_as_user                = "0"
+                        }
+
+                      + volume_mount {
+                          + mount_path        = "/var/jenkins_home"
+                          + mount_propagation = "None"
+                          + name              = "jenkins-home"
+                          + read_only         = false
+                        }
+                      + volume_mount {
+                          + mount_path        = "/var/run/docker.sock"
+                          + mount_propagation = "None"
+                          + name              = "docker-sock"
+                          + read_only         = false
+                        }
+                    }
+
+                  + image_pull_secrets (known after apply)
+
+                  + readiness_gate (known after apply)
+
+                  + volume {
+                      + name = "jenkins-home"
+
+                      + persistent_volume_claim {
+                          + claim_name = "jenkins-pvc"
+                          + read_only  = false
+                        }
+                    }
+                  + volume {
+                      + name = "docker-sock"
+
+                      + host_path {
+                          + path = "/var/run/docker.sock"
+                          + type = "Socket"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+  # kubernetes_deployment.mysql will be created
+  + resource "kubernetes_deployment" "mysql" {
+      + id               = (known after apply)
+      + wait_for_rollout = true
+
+      + metadata {
+          + generation       = (known after apply)
+          + labels           = {
+              + "app" = "mysql"
+            }
+          + name             = "mysql"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + min_ready_seconds         = 0
+          + paused                    = false
+          + progress_deadline_seconds = 600
+          + replicas                  = "1"
+          + revision_history_limit    = 10
+
+          + selector {
+              + match_labels = {
+                  + "app" = "mysql"
+                }
+            }
+
+          + strategy (known after apply)
+
+          + template {
+              + metadata {
+                  + generation       = (known after apply)
+                  + labels           = {
+                      + "app" = "mysql"
+                    }
+                  + name             = (known after apply)
+                  + resource_version = (known after apply)
+                  + uid              = (known after apply)
+                }
+              + spec {
+                  + automount_service_account_token  = true
+                  + dns_policy                       = "ClusterFirst"
+                  + enable_service_links             = true
+                  + host_ipc                         = false
+                  + host_network                     = false
+                  + host_pid                         = false
+                  + hostname                         = (known after apply)
+                  + node_name                        = (known after apply)
+                  + restart_policy                   = "Always"
+                  + scheduler_name                   = (known after apply)
+                  + service_account_name             = (known after apply)
+                  + share_process_namespace          = false
+                  + termination_grace_period_seconds = 30
+
+                  + container {
+                      + image                      = "mysql:8.0"
+                      + image_pull_policy          = (known after apply)
+                      + name                       = "mysql"
+                      + stdin                      = false
+                      + stdin_once                 = false
+                      + termination_message_path   = "/dev/termination-log"
+                      + termination_message_policy = (known after apply)
+                      + tty                        = false
+
+                      + env {
+                          + name = "MYSQL_ROOT_PASSWORD"
+
+                          + value_from {
+                              + secret_key_ref {
+                                  + key  = "MYSQL_ROOT_PASSWORD"
+                                  + name = "db-secret"
+                                }
+                            }
+                        }
+                      + env {
+                          + name  = "MYSQL_DATABASE"
+                          + value = "consulta_medica"
+                        }
+                      + env {
+                          + name  = "MYSQL_USER"
+                          + value = "consulta_app"
+                        }
+                      + env {
+                          + name = "MYSQL_PASSWORD"
+
+                          + value_from {
+                              + secret_key_ref {
+                                  + key  = "MYSQL_PASSWORD"
+                                  + name = "db-secret"
+                                }
+                            }
+                        }
+
+                      + port {
+                          + container_port = 3306
+                          + protocol       = "TCP"
+                        }
+
+                      + resources (known after apply)
+
+                      + volume_mount {
+                          + mount_path        = "/var/lib/mysql"
+                          + mount_propagation = "None"
+                          + name              = "mysql-storage"
+                          + read_only         = false
+                        }
+                    }
+
+                  + image_pull_secrets (known after apply)
+
+                  + readiness_gate (known after apply)
+
+                  + volume {
+                      + name = "mysql-storage"
+
+                      + persistent_volume_claim {
+                          + claim_name = "mysql-pvc"
+                          + read_only  = false
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+  # kubernetes_deployment.prometheus will be created
+  + resource "kubernetes_deployment" "prometheus" {
+      + id               = (known after apply)
+      + wait_for_rollout = true
+
+      + metadata {
+          + generation       = (known after apply)
+          + labels           = {
+              + "app" = "prometheus"
+            }
+          + name             = "prometheus"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + min_ready_seconds         = 0
+          + paused                    = false
+          + progress_deadline_seconds = 600
+          + replicas                  = "1"
+          + revision_history_limit    = 10
+
+          + selector {
+              + match_labels = {
+                  + "app" = "prometheus"
+                }
+            }
+
+          + strategy (known after apply)
+
+          + template {
+              + metadata {
+                  + generation       = (known after apply)
+                  + labels           = {
+                      + "app" = "prometheus"
+                    }
+                  + name             = (known after apply)
+                  + resource_version = (known after apply)
+                  + uid              = (known after apply)
+                }
+              + spec {
+                  + automount_service_account_token  = true
+                  + dns_policy                       = "ClusterFirst"
+                  + enable_service_links             = true
+                  + host_ipc                         = false
+                  + host_network                     = false
+                  + host_pid                         = false
+                  + hostname                         = (known after apply)
+                  + node_name                        = (known after apply)
+                  + restart_policy                   = "Always"
+                  + scheduler_name                   = (known after apply)
+                  + service_account_name             = (known after apply)
+                  + share_process_namespace          = false
+                  + termination_grace_period_seconds = 30
+
+                  + container {
+                      + args                       = [
+                          + "--config.file=/etc/prometheus/prometheus.yml",
+                          + "--storage.tsdb.path=/prometheus",
+                        ]
+                      + image                      = "prom/prometheus:latest"
+                      + image_pull_policy          = (known after apply)
+                      + name                       = "prometheus"
+                      + stdin                      = false
+                      + stdin_once                 = false
+                      + termination_message_path   = "/dev/termination-log"
+                      + termination_message_policy = (known after apply)
+                      + tty                        = false
+
+                      + port {
+                          + container_port = 9090
+                          + protocol       = "TCP"
+                        }
+
+                      + resources (known after apply)
+
+                      + volume_mount {
+                          + mount_path        = "/etc/prometheus"
+                          + mount_propagation = "None"
+                          + name              = "prometheus-config"
+                          + read_only         = false
+                        }
+                    }
+
+                  + image_pull_secrets (known after apply)
+
+                  + readiness_gate (known after apply)
+
+                  + volume {
+                      + name = "prometheus-config"
+
+                      + config_map {
+                          + default_mode = "0644"
+                          + name         = "prometheus-config"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+  # kubernetes_job.mysql_seed will be created
+  + resource "kubernetes_job" "mysql_seed" {
+      + id                  = (known after apply)
+      + wait_for_completion = true
+
+      + metadata {
+          + generation       = (known after apply)
+          + labels           = (known after apply)
+          + name             = "mysql-seed"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + backoff_limit   = 3
+          + completion_mode = (known after apply)
+          + completions     = 1
+          + parallelism     = 1
+
+          + selector (known after apply)
+
+          + template {
+              + metadata {
+                  + generation       = (known after apply)
+                  + labels           = {
+                      + "app" = "mysql-seed"
+                    }
+                  + name             = (known after apply)
+                  + resource_version = (known after apply)
+                  + uid              = (known after apply)
+                }
+              + spec {
+                  + automount_service_account_token  = true
+                  + dns_policy                       = "ClusterFirst"
+                  + enable_service_links             = true
+                  + host_ipc                         = false
+                  + host_network                     = false
+                  + host_pid                         = false
+                  + hostname                         = (known after apply)
+                  + node_name                        = (known after apply)
+                  + restart_policy                   = "OnFailure"
+                  + scheduler_name                   = (known after apply)
+                  + service_account_name             = (known after apply)
+                  + share_process_namespace          = false
+                  + termination_grace_period_seconds = 30
+
+                  + container {
+                      + args                       = [
+                          + <<-EOT
+                                set -e
+                                echo "Esperando MySQL en ${DB_HOST}:3306..."
+                                MYSQL_CMD="mysql --default-character-set=utf8mb4 -h\"${DB_HOST}\" -u\"${DB_USER}\" -p\"${DB_PASSWORD}\""
+                                
+                                until sh -lc "${MYSQL_CMD} -Nse 'SELECT 1'" >/dev/null 2>&1; do
+                                  sleep 3
+                                done
+                                
+                                TABLE_EXISTS=$(sh -lc "${MYSQL_CMD} -Nse \"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}' AND table_name='usuarios';\"")
+                                
+                                if [ "${TABLE_EXISTS}" = "0" ]; then
+                                  echo "Schema no encontrado. Importando /seed/database.sql..."
+                                  sh -lc "${MYSQL_CMD} \"${DB_NAME}\" < /seed/database.sql"
+                                  echo "Inicialización completada"
+                                else
+                                  echo "Schema ya inicializado. No se requiere import"
+                                fi
+                            EOT,
+                        ]
+                      + command                    = [
+                          + "/bin/sh",
+                          + "-c",
+                        ]
+                      + image                      = "mysql:8.0"
+                      + image_pull_policy          = (known after apply)
+                      + name                       = "mysql-seed"
+                      + stdin                      = false
+                      + stdin_once                 = false
+                      + termination_message_path   = "/dev/termination-log"
+                      + termination_message_policy = (known after apply)
+                      + tty                        = false
+
+                      + env {
+                          + name  = "DB_HOST"
+                          + value = "mysql"
+                        }
+                      + env {
+                          + name  = "DB_NAME"
+                          + value = "consulta_medica"
+                        }
+                      + env {
+                          + name  = "DB_USER"
+                          + value = "consulta_app"
+                        }
+                      + env {
+                          + name = "DB_PASSWORD"
+
+                          + value_from {
+                              + secret_key_ref {
+                                  + key  = "DB_PASSWORD"
+                                  + name = "db-secret"
+                                }
+                            }
+                        }
+
+                      + resources (known after apply)
+
+                      + volume_mount {
+                          + mount_path        = "/seed"
+                          + mount_propagation = "None"
+                          + name              = "seed-sql"
+                          + read_only         = false
+                        }
+                    }
+
+                  + image_pull_secrets (known after apply)
+
+                  + readiness_gate (known after apply)
+
+                  + volume {
+                      + name = "seed-sql"
+
+                      + config_map {
+                          + default_mode = "0644"
+                          + name         = "mysql-init-sql"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+  # kubernetes_namespace.consulta_medica will be created
+  + resource "kubernetes_namespace" "consulta_medica" {
+      + id                               = (known after apply)
+      + wait_for_default_service_account = false
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_persistent_volume_claim.jenkins_pvc will be created
+  + resource "kubernetes_persistent_volume_claim" "jenkins_pvc" {
+      + id               = (known after apply)
+      + wait_until_bound = true
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "jenkins-pvc"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + access_modes       = [
+              + "ReadWriteOnce",
+            ]
+          + storage_class_name = (known after apply)
+          + volume_mode        = (known after apply)
+          + volume_name        = (known after apply)
+
+          + resources {
+              + requests = {
+                  + "storage" = "20Gi"
+                }
+            }
+        }
+    }
+
+  # kubernetes_persistent_volume_claim.mysql_pvc will be created
+  + resource "kubernetes_persistent_volume_claim" "mysql_pvc" {
+      + id               = (known after apply)
+      + wait_until_bound = true
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "mysql-pvc"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + access_modes       = [
+              + "ReadWriteOnce",
+            ]
+          + storage_class_name = (known after apply)
+          + volume_mode        = (known after apply)
+          + volume_name        = (known after apply)
+
+          + resources {
+              + requests = {
+                  + "storage" = "10Gi"
+                }
+            }
+        }
+    }
+
+  # kubernetes_persistent_volume_claim.registry_pvc will be created
+  + resource "kubernetes_persistent_volume_claim" "registry_pvc" {
+      + id               = (known after apply)
+      + wait_until_bound = true
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "docker-registry-pvc"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + access_modes       = [
+              + "ReadWriteOnce",
+            ]
+          + storage_class_name = (known after apply)
+          + volume_mode        = (known after apply)
+          + volume_name        = (known after apply)
+
+          + resources {
+              + requests = {
+                  + "storage" = "20Gi"
+                }
+            }
+        }
+    }
+
+  # kubernetes_role_binding.jenkins_admin will be created
+  + resource "kubernetes_role_binding" "jenkins_admin" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "jenkins-admin-consulta-medica"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + role_ref {
+          + api_group = "rbac.authorization.k8s.io"
+          + kind      = "ClusterRole"
+          + name      = "cluster-admin"
+        }
+
+      + subject {
+          + api_group = (known after apply)
+          + kind      = "ServiceAccount"
+          + name      = "jenkins"
+          + namespace = "consulta-medica"
+        }
+    }
+
+  # kubernetes_secret.db_secret will be created
+  + resource "kubernetes_secret" "db_secret" {
+      + binary_data_wo                 = (write-only attribute)
+      + data                           = (sensitive value)
+      + data_wo                        = (write-only attribute)
+      + id                             = (known after apply)
+      + type                           = "Opaque"
+      + wait_for_service_account_token = true
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "db-secret"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_service.app will be created
+  + resource "kubernetes_service" "app" {
+      + id                     = (known after apply)
+      + status                 = (known after apply)
+      + wait_for_load_balancer = false
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "consulta-medica"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + allocate_load_balancer_node_ports = true
+          + cluster_ip                        = (known after apply)
+          + cluster_ips                       = (known after apply)
+          + external_traffic_policy           = (known after apply)
+          + health_check_node_port            = (known after apply)
+          + internal_traffic_policy           = (known after apply)
+          + ip_families                       = (known after apply)
+          + ip_family_policy                  = (known after apply)
+          + publish_not_ready_addresses       = false
+          + selector                          = {
+              + "app" = "consulta-medica"
+            }
+          + session_affinity                  = "None"
+          + type                              = "LoadBalancer"
+
+          + port {
+              + node_port   = (known after apply)
+              + port        = 80
+              + protocol    = "TCP"
+              + target_port = "80"
+            }
+
+          + session_affinity_config (known after apply)
+        }
+    }
+
+  # kubernetes_service.docker_registry will be created
+  + resource "kubernetes_service" "docker_registry" {
+      + id                     = (known after apply)
+      + status                 = (known after apply)
+      + wait_for_load_balancer = false
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "docker-registry"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + allocate_load_balancer_node_ports = true
+          + cluster_ip                        = (known after apply)
+          + cluster_ips                       = (known after apply)
+          + external_traffic_policy           = (known after apply)
+          + health_check_node_port            = (known after apply)
+          + internal_traffic_policy           = (known after apply)
+          + ip_families                       = (known after apply)
+          + ip_family_policy                  = (known after apply)
+          + publish_not_ready_addresses       = false
+          + selector                          = {
+              + "app" = "docker-registry"
+            }
+          + session_affinity                  = "None"
+          + type                              = "LoadBalancer"
+
+          + port {
+              + node_port   = (known after apply)
+              + port        = 5000
+              + protocol    = "TCP"
+              + target_port = "5000"
+            }
+
+          + session_affinity_config (known after apply)
+        }
+    }
+
+  # kubernetes_service.grafana will be created
+  + resource "kubernetes_service" "grafana" {
+      + id                     = (known after apply)
+      + status                 = (known after apply)
+      + wait_for_load_balancer = false
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "grafana"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + allocate_load_balancer_node_ports = true
+          + cluster_ip                        = (known after apply)
+          + cluster_ips                       = (known after apply)
+          + external_traffic_policy           = (known after apply)
+          + health_check_node_port            = (known after apply)
+          + internal_traffic_policy           = (known after apply)
+          + ip_families                       = (known after apply)
+          + ip_family_policy                  = (known after apply)
+          + publish_not_ready_addresses       = false
+          + selector                          = {
+              + "app" = "grafana"
+            }
+          + session_affinity                  = "None"
+          + type                              = "LoadBalancer"
+
+          + port {
+              + node_port   = (known after apply)
+              + port        = 3000
+              + protocol    = "TCP"
+              + target_port = "3000"
+            }
+
+          + session_affinity_config (known after apply)
+        }
+    }
+
+  # kubernetes_service.jenkins will be created
+  + resource "kubernetes_service" "jenkins" {
+      + id                     = (known after apply)
+      + status                 = (known after apply)
+      + wait_for_load_balancer = false
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "jenkins"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + allocate_load_balancer_node_ports = true
+          + cluster_ip                        = (known after apply)
+          + cluster_ips                       = (known after apply)
+          + external_traffic_policy           = (known after apply)
+          + health_check_node_port            = (known after apply)
+          + internal_traffic_policy           = (known after apply)
+          + ip_families                       = (known after apply)
+          + ip_family_policy                  = (known after apply)
+          + publish_not_ready_addresses       = false
+          + selector                          = {
+              + "app" = "jenkins"
+            }
+          + session_affinity                  = "None"
+          + type                              = "LoadBalancer"
+
+          + port {
+              + name        = "http"
+              + node_port   = (known after apply)
+              + port        = 8080
+              + protocol    = "TCP"
+              + target_port = "8080"
+            }
+          + port {
+              + name        = "jnlp"
+              + node_port   = (known after apply)
+              + port        = 50000
+              + protocol    = "TCP"
+              + target_port = "50000"
+            }
+
+          + session_affinity_config (known after apply)
+        }
+    }
+
+  # kubernetes_service.mysql will be created
+  + resource "kubernetes_service" "mysql" {
+      + id                     = (known after apply)
+      + status                 = (known after apply)
+      + wait_for_load_balancer = false
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "mysql"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + allocate_load_balancer_node_ports = true
+          + cluster_ip                        = "None"
+          + cluster_ips                       = (known after apply)
+          + external_traffic_policy           = (known after apply)
+          + health_check_node_port            = (known after apply)
+          + internal_traffic_policy           = (known after apply)
+          + ip_families                       = (known after apply)
+          + ip_family_policy                  = (known after apply)
+          + publish_not_ready_addresses       = false
+          + selector                          = {
+              + "app" = "mysql"
+            }
+          + session_affinity                  = "None"
+          + type                              = "ClusterIP"
+
+          + port {
+              + node_port   = (known after apply)
+              + port        = 3306
+              + protocol    = "TCP"
+              + target_port = "3306"
+            }
+
+          + session_affinity_config (known after apply)
+        }
+    }
+
+  # kubernetes_service.prometheus will be created
+  + resource "kubernetes_service" "prometheus" {
+      + id                     = (known after apply)
+      + status                 = (known after apply)
+      + wait_for_load_balancer = false
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "prometheus"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + allocate_load_balancer_node_ports = true
+          + cluster_ip                        = (known after apply)
+          + cluster_ips                       = (known after apply)
+          + external_traffic_policy           = (known after apply)
+          + health_check_node_port            = (known after apply)
+          + internal_traffic_policy           = (known after apply)
+          + ip_families                       = (known after apply)
+          + ip_family_policy                  = (known after apply)
+          + publish_not_ready_addresses       = false
+          + selector                          = {
+              + "app" = "prometheus"
+            }
+          + session_affinity                  = "None"
+          + type                              = "LoadBalancer"
+
+          + port {
+              + node_port   = (known after apply)
+              + port        = 9090
+              + protocol    = "TCP"
+              + target_port = "9090"
+            }
+
+          + session_affinity_config (known after apply)
+        }
+    }
+
+  # kubernetes_service_account.jenkins will be created
+  + resource "kubernetes_service_account" "jenkins" {
+      + automount_service_account_token = true
+      + default_secret_name             = (known after apply)
+      + id                              = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "jenkins"
+          + namespace        = "consulta-medica"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+Plan: 25 to add, 0 to change, 0 to destroy.
+
+─────────────────────────────────────────────────────────────────────────────
+
+Saved the plan to: tfplan
+
+To perform exactly these actions, run the following command to apply:
+    terraform apply "tfplan"

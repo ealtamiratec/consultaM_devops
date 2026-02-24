@@ -1,0 +1,2 @@
+NAME                               READY   STATUS    RESTARTS   AGE   IP           NODE             NOMINATED NODE   READINESS GATES
+consulta-medica-5bc447966b-fbqr5   1/1     Running   0          56s   10.1.0.166   docker-desktop   <none>           <none>

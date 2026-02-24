@@ -1,0 +1,8 @@
+kubernetes_namespace.consulta_medica: Creating...
+
+Error: namespaces "consulta-medica" already exists
+
+  with kubernetes_namespace.consulta_medica,
+  on main.tf line 84, in resource "kubernetes_namespace" "consulta_medica":
+  84: resource "kubernetes_namespace" "consulta_medica" {
+

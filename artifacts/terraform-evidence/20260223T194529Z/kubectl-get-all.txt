@@ -1,0 +1,63 @@
+NAME                                     READY   STATUS      RESTARTS   AGE
+pod/consulta-medica-5bc447966b-fbqr5     1/1     Running     0          21h
+pod/docker-registry-769b45886b-vvmdk     1/1     Running     0          6d21h
+pod/grafana-5d77dd9f8-s272k              1/1     Running     0          6d21h
+pod/jenkins-5bdcb97494-mv4tt             1/1     Running     0          5d20h
+pod/kube-state-metrics-8df5dffbd-wvzs7   1/1     Running     0          5d17h
+pod/mysql-7cbddc954f-xp4fb               1/1     Running     0          6d21h
+pod/mysql-seed-w2n78                     0/1     Completed   0          6d17h
+pod/prometheus-5448858fbc-frdfs          1/1     Running     0          3d
+
+NAME                         TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                          AGE
+service/consulta-medica      LoadBalancer   10.106.47.204    localhost     80:32656/TCP                     6d21h
+service/docker-registry      LoadBalancer   10.106.231.18    <pending>     5000:32473/TCP                   6d20h
+service/grafana              LoadBalancer   10.96.10.102     localhost     3000:30111/TCP                   6d21h
+service/jenkins              LoadBalancer   10.107.171.6     localhost     8080:32439/TCP,50000:30921/TCP   6d21h
+service/kube-state-metrics   ClusterIP      10.100.194.238   <none>        8080/TCP                         5d17h
+service/mysql                ClusterIP      None             <none>        3306/TCP                         6d21h
+service/prometheus           LoadBalancer   10.109.253.241   localhost     9090:30806/TCP                   6d21h
+
+NAME                                 READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/consulta-medica      1/1     1            1           6d21h
+deployment.apps/docker-registry      1/1     1            1           6d21h
+deployment.apps/grafana              1/1     1            1           6d21h
+deployment.apps/jenkins              1/1     1            1           6d21h
+deployment.apps/kube-state-metrics   1/1     1            1           5d17h
+deployment.apps/mysql                1/1     1            1           6d21h
+deployment.apps/prometheus           1/1     1            1           6d21h
+
+NAME                                           DESIRED   CURRENT   READY   AGE
+replicaset.apps/consulta-medica-54b55fbb6b     0         0         0       6d21h
+replicaset.apps/consulta-medica-555bf85dff     0         0         0       6d3h
+replicaset.apps/consulta-medica-55f8d6d4db     0         0         0       6d19h
+replicaset.apps/consulta-medica-5bc447966b     1         1         1       21h
+replicaset.apps/consulta-medica-5cf97587d8     0         0         0       5d17h
+replicaset.apps/consulta-medica-5d8479ccbf     0         0         0       5d17h
+replicaset.apps/consulta-medica-699df577b5     0         0         0       4d16h
+replicaset.apps/consulta-medica-7b477c7dd7     0         0         0       5d19h
+replicaset.apps/consulta-medica-8545555b8c     0         0         0       4d16h
+replicaset.apps/docker-registry-769b45886b     1         1         1       6d21h
+replicaset.apps/grafana-5d77dd9f8              1         1         1       6d21h
+replicaset.apps/jenkins-5846f6f6c7             0         0         0       6d21h
+replicaset.apps/jenkins-5bd968fd9b             0         0         0       6d3h
+replicaset.apps/jenkins-5bdcb97494             1         1         1       6d
+replicaset.apps/jenkins-6cf9df79cd             0         0         0       6d4h
+replicaset.apps/jenkins-94d86b65               0         0         0       6d3h
+replicaset.apps/jenkins-b8875dbcc              0         0         0       6d3h
+replicaset.apps/jenkins-f948877cd              0         0         0       6d1h
+replicaset.apps/kube-state-metrics-8df5dffbd   1         1         1       5d17h
+replicaset.apps/mysql-7cbddc954f               1         1         1       6d21h
+replicaset.apps/prometheus-5448858fbc          1         1         1       3d
+replicaset.apps/prometheus-5b8995b9fd          0         0         0       4d17h
+replicaset.apps/prometheus-5f94d89875          0         0         0       4d17h
+replicaset.apps/prometheus-5fc6489f97          0         0         0       3d1h
+replicaset.apps/prometheus-69d68f7579          0         0         0       3d1h
+replicaset.apps/prometheus-768b45cc8f          0         0         0       4d17h
+replicaset.apps/prometheus-7bc7d64599          0         0         0       3d3h
+replicaset.apps/prometheus-7f75d4ff6d          0         0         0       4d17h
+replicaset.apps/prometheus-84544d66f8          0         0         0       3d3h
+replicaset.apps/prometheus-dcf5cd98f           0         0         0       5d16h
+replicaset.apps/prometheus-f6fdc884b           0         0         0       3d
+
+NAME                   STATUS     COMPLETIONS   DURATION   AGE
+job.batch/mysql-seed   Complete   1/1           4s         6d17h

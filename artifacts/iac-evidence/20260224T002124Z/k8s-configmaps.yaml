@@ -1,0 +1,287 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  data:
+    APP_BASE_PATH: ""
+    APP_ENV: production
+    APP_URL: http://localhost
+    DB_DATABASE: consulta_medica
+    DB_HOST: mysql
+    DB_PORT: "3306"
+    DB_USER: consulta_app
+  immutable: false
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2026-02-16T22:41:22Z"
+    name: app-config
+    namespace: consulta-medica
+    resourceVersion: "1065"
+    uid: ca3cbb38-39b2-4fb5-bdfa-eed68f1d83a8
+- apiVersion: v1
+  data:
+    alerts.yaml: |
+      groups:
+        - name: consulta-medica-pods
+          rules:
+            - alert: ConsultaMedicaPodNotReady
+              expr: sum(kube_pod_status_ready{namespace="consulta-medica",pod=~"consulta-medica.*",condition="true"}) < 1
+              for: 2m
+              labels:
+                severity: warning
+                service: consulta-medica
+              annotations:
+                summary: "Pod de consulta-medica no disponible"
+                description: "No hay pods Ready para consulta-medica en el namespace consulta-medica durante más de 2 minutos."
+
+            - alert: MySQLPodNotReady
+              expr: sum(kube_pod_status_ready{namespace="consulta-medica",pod=~"mysql.*",condition="true"}) < 1
+              for: 2m
+              labels:
+                severity: critical
+                service: mysql
+              annotations:
+                summary: "Pod de MySQL no disponible"
+                description: "No hay pods Ready para mysql en el namespace consulta-medica durante más de 2 minutos."
+
+            - alert: HighContainerRestartsConsultaMysql
+              expr: increase(kube_pod_container_status_restarts_total{namespace="consulta-medica",pod=~"consulta-medica.*|mysql.*"}[10m]) > 1
+              for: 5m
+              labels:
+                severity: warning
+                service: consulta-medica-mysql
+              annotations:
+                summary: "Reinicios altos en contenedores críticos"
+                description: "Se detectaron reinicios de contenedores en consulta-medica/mysql (>1 en 10m) durante al menos 5 minutos."
+    prometheus.yml: |
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
+
+      rule_files:
+        - /etc/prometheus/alerts.yaml
+
+      scrape_configs:
+        - job_name: 'kubernetes-apiservers'
+          kubernetes_sd_configs:
+            - role: endpoints
+          scheme: https
+          tls_config:
+            ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+          relabel_configs:
+            - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+              action: keep
+              regex: default;kubernetes;https
+
+        - job_name: 'kubernetes-nodes'
+          kubernetes_sd_configs:
+            - role: node
+          scheme: https
+          tls_config:
+            ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+            insecure_skip_verify: true
+          bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+          relabel_configs:
+            - action: labelmap
+              regex: __meta_kubernetes_node_label_(.+)
+
+        - job_name: 'kubernetes-pods'
+          kubernetes_sd_configs:
+            - role: pod
+          relabel_configs:
+            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+              action: keep
+              regex: 'true'
+            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+              action: replace
+              target_label: __metrics_path__
+              regex: (.+)
+            - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+              action: replace
+              regex: ([^:]+)(?::\d+)?;(\d+)
+              replacement: $1:$2
+              target_label: __address__
+            - action: labelmap
+              regex: __meta_kubernetes_pod_label_(.+)
+            - source_labels: [__meta_kubernetes_namespace]
+              action: replace
+              target_label: kubernetes_namespace
+            - source_labels: [__meta_kubernetes_pod_name]
+              action: replace
+              target_label: kubernetes_pod_name
+
+        - job_name: 'prometheus-self'
+          static_configs:
+            - targets: ['localhost:9090']
+
+        - job_name: 'grafana'
+          metrics_path: /metrics
+          static_configs:
+            - targets: ['grafana.consulta-medica.svc.cluster.local:3000']
+
+        - job_name: 'kube-state-metrics'
+          static_configs:
+            - targets: ['kube-state-metrics.consulta-medica.svc.cluster.local:8080']
+
+        - job_name: 'kubernetes-cadvisor'
+          scheme: https
+          tls_config:
+            insecure_skip_verify: true
+          bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+          kubernetes_sd_configs:
+            - role: node
+          relabel_configs:
+            - action: labelmap
+              regex: __meta_kubernetes_node_label_(.+)
+            - target_label: __address__
+              replacement: kubernetes.default.svc:443
+            - source_labels: [__meta_kubernetes_node_name]
+              target_label: __metrics_path__
+              regex: (.+)
+              replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
+  immutable: false
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"alerts.yaml":"groups:\n  - name: consulta-medica-pods\n    rules:\n      - alert: ConsultaMedicaPodNotReady\n        expr: sum(kube_pod_status_ready{namespace=\"consulta-medica\",pod=~\"consulta-medica.*\",condition=\"true\"}) \u003c 1\n        for: 2m\n        labels:\n          severity: warning\n          service: consulta-medica\n        annotations:\n          summary: \"Pod de consulta-medica no disponible\"\n          description: \"No hay pods Ready para consulta-medica en el namespace consulta-medica durante más de 2 minutos.\"\n\n      - alert: MySQLPodNotReady\n        expr: sum(kube_pod_status_ready{namespace=\"consulta-medica\",pod=~\"mysql.*\",condition=\"true\"}) \u003c 1\n        for: 2m\n        labels:\n          severity: critical\n          service: mysql\n        annotations:\n          summary: \"Pod de MySQL no disponible\"\n          description: \"No hay pods Ready para mysql en el namespace consulta-medica durante más de 2 minutos.\"\n\n      - alert: HighContainerRestartsConsultaMysql\n        expr: increase(kube_pod_container_status_restarts_total{namespace=\"consulta-medica\",pod=~\"consulta-medica.*|mysql.*\"}[10m]) \u003e 1\n        for: 5m\n        labels:\n          severity: warning\n          service: consulta-medica-mysql\n        annotations:\n          summary: \"Reinicios altos en contenedores críticos\"\n          description: \"Se detectaron reinicios de contenedores en consulta-medica/mysql (\u003e1 en 10m) durante al menos 5 minutos.\"\n","prometheus.yml":"global:\n  scrape_interval: 15s\n  evaluation_interval: 15s\n\nrule_files:\n  - /etc/prometheus/alerts.yaml\n\nscrape_configs:\n  - job_name: 'kubernetes-apiservers'\n    kubernetes_sd_configs:\n      - role: endpoints\n    scheme: https\n    tls_config:\n      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt\n    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token\n    relabel_configs:\n      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]\n        action: keep\n        regex: default;kubernetes;https\n\n  - job_name: 'kubernetes-nodes'\n    kubernetes_sd_configs:\n      - role: node\n    scheme: https\n    tls_config:\n      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt\n      insecure_skip_verify: true\n    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token\n    relabel_configs:\n      - action: labelmap\n        regex: __meta_kubernetes_node_label_(.+)\n\n  - job_name: 'kubernetes-pods'\n    kubernetes_sd_configs:\n      - role: pod\n    relabel_configs:\n      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]\n        action: keep\n        regex: 'true'\n      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]\n        action: replace\n        target_label: __metrics_path__\n        regex: (.+)\n      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]\n        action: replace\n        regex: ([^:]+)(?::\\d+)?;(\\d+)\n        replacement: $1:$2\n        target_label: __address__\n      - action: labelmap\n        regex: __meta_kubernetes_pod_label_(.+)\n      - source_labels: [__meta_kubernetes_namespace]\n        action: replace\n        target_label: kubernetes_namespace\n      - source_labels: [__meta_kubernetes_pod_name]\n        action: replace\n        target_label: kubernetes_pod_name\n\n  - job_name: 'prometheus-self'\n    static_configs:\n      - targets: ['localhost:9090']\n\n  - job_name: 'grafana'\n    metrics_path: /metrics\n    static_configs:\n      - targets: ['grafana.consulta-medica.svc.cluster.local:3000']\n\n  - job_name: 'kube-state-metrics'\n    static_configs:\n      - targets: ['kube-state-metrics.consulta-medica.svc.cluster.local:8080']\n\n  - job_name: 'kubernetes-cadvisor'\n    scheme: https\n    tls_config:\n      insecure_skip_verify: true\n    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token\n    kubernetes_sd_configs:\n      - role: node\n    relabel_configs:\n      - action: labelmap\n        regex: __meta_kubernetes_node_label_(.+)\n      - target_label: __address__\n        replacement: kubernetes.default.svc:443\n      - source_labels: [__meta_kubernetes_node_name]\n        target_label: __metrics_path__\n        regex: (.+)\n        replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor\n"},"kind":"ConfigMap","metadata":{"annotations":{},"name":"prometheus-config","namespace":"consulta-medica"}}
+    creationTimestamp: "2026-02-16T22:41:22Z"
+    name: prometheus-config
+    namespace: consulta-medica
+    resourceVersion: "155426"
+    uid: 95f11a82-f4c6-479b-a967-82ad41c92166
+- apiVersion: v1
+  data:
+    prometheus.yaml: |
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          access: proxy
+          url: http://prometheus:9090
+          isDefault: true
+  immutable: false
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2026-02-16T22:41:22Z"
+    name: grafana-datasource
+    namespace: consulta-medica
+    resourceVersion: "1063"
+    uid: e41b6e7a-2572-4eed-ba9b-7bfa6e9cd083
+- apiVersion: v1
+  data:
+    database.sql: "-- =====================================================\n-- Sistema
+      de Atención Médica - Consulta Externa\n-- Base de Datos MySQL\n-- =====================================================\n\n--
+      Crear base de datos\nCREATE DATABASE IF NOT EXISTS consulta_medica \nCHARACTER
+      SET utf8mb4 \nCOLLATE utf8mb4_unicode_ci;\n\nUSE consulta_medica;\n\n-- =====================================================\n--
+      Tabla de Usuarios (para autenticación)\n-- =====================================================\nCREATE
+      TABLE IF NOT EXISTS usuarios (\n    id INT AUTO_INCREMENT PRIMARY KEY,\n    username
+      VARCHAR(50) NOT NULL UNIQUE,\n    email VARCHAR(100) NOT NULL UNIQUE,\n    password
+      VARCHAR(255) NOT NULL,\n    nombre_completo VARCHAR(150) NOT NULL,\n    rol
+      ENUM('admin', 'medico', 'recepcionista') NOT NULL DEFAULT 'recepcionista',\n
+      \   activo TINYINT(1) NOT NULL DEFAULT 1,\n    ultimo_acceso DATETIME NULL,\n
+      \   token_recuperacion VARCHAR(100) NULL,\n    token_expiracion DATETIME NULL,\n
+      \   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n    updated_at TIMESTAMP
+      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n    INDEX idx_username
+      (username),\n    INDEX idx_email (email),\n    INDEX idx_rol (rol)\n) ENGINE=InnoDB;\n\n--
+      =====================================================\n-- Tabla de Pacientes\n--
+      =====================================================\nCREATE TABLE IF NOT EXISTS
+      pacientes (\n    id INT AUTO_INCREMENT PRIMARY KEY,\n    numero_historia VARCHAR(20)
+      NOT NULL UNIQUE,\n    tipo_documento ENUM('DNI', 'CE', 'Pasaporte', 'Otro')
+      NOT NULL DEFAULT 'DNI',\n    numero_documento VARCHAR(20) NOT NULL UNIQUE,\n
+      \   nombres VARCHAR(100) NOT NULL,\n    apellido_paterno VARCHAR(50) NOT NULL,\n
+      \   apellido_materno VARCHAR(50) NULL,\n    fecha_nacimiento DATE NOT NULL,\n
+      \   sexo ENUM('M', 'F', 'Otro') NOT NULL,\n    estado_civil ENUM('Soltero',
+      'Casado', 'Divorciado', 'Viudo', 'Conviviente') NULL,\n    direccion VARCHAR(255)
+      NULL,\n    telefono VARCHAR(20) NULL,\n    email VARCHAR(100) NULL,\n    grupo_sanguineo
+      VARCHAR(5) NULL,\n    alergias TEXT NULL,\n    antecedentes TEXT NULL,\n    contacto_emergencia
+      VARCHAR(100) NULL,\n    telefono_emergencia VARCHAR(20) NULL,\n    activo TINYINT(1)
+      NOT NULL DEFAULT 1,\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n    updated_at
+      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n    INDEX
+      idx_numero_historia (numero_historia),\n    INDEX idx_documento (tipo_documento,
+      numero_documento),\n    INDEX idx_nombres (nombres, apellido_paterno)\n) ENGINE=InnoDB;\n\n--
+      =====================================================\n-- Tabla de Especialidades
+      Médicas\n-- =====================================================\nCREATE TABLE
+      IF NOT EXISTS especialidades (\n    id INT AUTO_INCREMENT PRIMARY KEY,\n    nombre
+      VARCHAR(100) NOT NULL UNIQUE,\n    descripcion TEXT NULL,\n    activo TINYINT(1)
+      NOT NULL DEFAULT 1,\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n    updated_at
+      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP\n) ENGINE=InnoDB;\n\n--
+      =====================================================\n-- Tabla de Médicos\n--
+      =====================================================\nCREATE TABLE IF NOT EXISTS
+      medicos (\n    id INT AUTO_INCREMENT PRIMARY KEY,\n    usuario_id INT NULL,\n
+      \   codigo_medico VARCHAR(20) NOT NULL UNIQUE,\n    numero_colegiatura VARCHAR(20)
+      NOT NULL UNIQUE,\n    nombres VARCHAR(100) NOT NULL,\n    apellido_paterno VARCHAR(50)
+      NOT NULL,\n    apellido_materno VARCHAR(50) NULL,\n    especialidad_id INT NOT
+      NULL,\n    telefono VARCHAR(20) NULL,\n    email VARCHAR(100) NULL,\n    horario_atencion
+      VARCHAR(255) NULL,\n    activo TINYINT(1) NOT NULL DEFAULT 1,\n    created_at
+      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ON UPDATE CURRENT_TIMESTAMP,\n    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+      ON DELETE SET NULL,\n    FOREIGN KEY (especialidad_id) REFERENCES especialidades(id)
+      ON DELETE RESTRICT,\n    INDEX idx_codigo_medico (codigo_medico),\n    INDEX
+      idx_colegiatura (numero_colegiatura),\n    INDEX idx_especialidad (especialidad_id)\n)
+      ENGINE=InnoDB;\n\n-- =====================================================\n--
+      Tabla de Consultas Médicas (Atenciones)\n-- =====================================================\nCREATE
+      TABLE IF NOT EXISTS consultas (\n    id INT AUTO_INCREMENT PRIMARY KEY,\n    numero_consulta
+      VARCHAR(20) NOT NULL UNIQUE,\n    paciente_id INT NOT NULL,\n    medico_id INT
+      NOT NULL,\n    fecha_consulta DATE NOT NULL,\n    hora_consulta TIME NOT NULL,\n
+      \   tipo_consulta ENUM('Primera vez', 'Control', 'Emergencia', 'Referencia')
+      NOT NULL DEFAULT 'Primera vez',\n    estado ENUM('Programada', 'En espera',
+      'En atención', 'Atendida', 'Cancelada', 'No asistió') NOT NULL DEFAULT 'Programada',\n
+      \   motivo_consulta TEXT NOT NULL,\n    sintomas TEXT NULL,\n    examen_fisico
+      TEXT NULL,\n    diagnostico TEXT NULL,\n    tratamiento TEXT NULL,\n    observaciones
+      TEXT NULL,\n    proxima_cita DATE NULL,\n    usuario_registro_id INT NOT NULL,\n
+      \   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n    updated_at TIMESTAMP
+      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n    FOREIGN KEY (paciente_id)
+      REFERENCES pacientes(id) ON DELETE RESTRICT,\n    FOREIGN KEY (medico_id) REFERENCES
+      medicos(id) ON DELETE RESTRICT,\n    FOREIGN KEY (usuario_registro_id) REFERENCES
+      usuarios(id) ON DELETE RESTRICT,\n    INDEX idx_numero_consulta (numero_consulta),\n
+      \   INDEX idx_paciente (paciente_id),\n    INDEX idx_medico (medico_id),\n    INDEX
+      idx_fecha (fecha_consulta),\n    INDEX idx_estado (estado)\n) ENGINE=InnoDB;\n\n--
+      =====================================================\n-- Tabla de Signos Vitales\n--
+      =====================================================\nCREATE TABLE IF NOT EXISTS
+      signos_vitales (\n    id INT AUTO_INCREMENT PRIMARY KEY,\n    consulta_id INT
+      NOT NULL,\n    presion_sistolica INT NULL,\n    presion_diastolica INT NULL,\n
+      \   frecuencia_cardiaca INT NULL,\n    frecuencia_respiratoria INT NULL,\n    temperatura
+      DECIMAL(4,2) NULL,\n    peso DECIMAL(5,2) NULL,\n    talla DECIMAL(4,2) NULL,\n
+      \   imc DECIMAL(4,2) NULL,\n    saturacion_oxigeno INT NULL,\n    created_at
+      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n    FOREIGN KEY (consulta_id) REFERENCES
+      consultas(id) ON DELETE CASCADE\n) ENGINE=InnoDB;\n\n-- =====================================================\n--
+      Tabla de Logs de Auditoría\n-- =====================================================\nCREATE
+      TABLE IF NOT EXISTS audit_logs (\n    id INT AUTO_INCREMENT PRIMARY KEY,\n    usuario_id
+      INT NULL,\n    accion VARCHAR(50) NOT NULL,\n    tabla_afectada VARCHAR(50)
+      NOT NULL,\n    registro_id INT NULL,\n    datos_anteriores JSON NULL,\n    datos_nuevos
+      JSON NULL,\n    ip_address VARCHAR(45) NULL,\n    user_agent TEXT NULL,\n    created_at
+      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n    INDEX idx_usuario (usuario_id),\n
+      \   INDEX idx_accion (accion),\n    INDEX idx_tabla (tabla_afectada),\n    INDEX
+      idx_fecha (created_at)\n) ENGINE=InnoDB;\n\n-- =====================================================\n--
+      Datos Iniciales\n-- =====================================================\n\n--
+      Insertar especialidades médicas básicas\nINSERT INTO especialidades (nombre,
+      descripcion) VALUES\n('Medicina General', 'Atención médica primaria y preventiva'),\n('Pediatría',
+      'Atención médica para niños y adolescentes'),\n('Ginecología', 'Salud reproductiva
+      femenina'),\n('Cardiología', 'Enfermedades del corazón y sistema cardiovascular'),\n('Dermatología',
+      'Enfermedades de la piel'),\n('Traumatología', 'Lesiones del sistema músculo-esquelético'),\n('Oftalmología',
+      'Enfermedades de los ojos'),\n('Otorrinolaringología', 'Enfermedades de oído,
+      nariz y garganta'),\n('Neurología', 'Enfermedades del sistema nervioso'),\n('Psiquiatría',
+      'Trastornos mentales y emocionales');\n\n-- Insertar usuario administrador por
+      defecto\n-- Password: Admin123! (hasheado con password_hash de PHP)\nINSERT
+      INTO usuarios (username, email, password, nombre_completo, rol) VALUES\n('admin',
+      'admin@consultamedica.local', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+      'Administrador del Sistema', 'admin');\n\n-- Insertar médico de ejemplo\nINSERT
+      INTO medicos (codigo_medico, numero_colegiatura, nombres, apellido_paterno,
+      apellido_materno, especialidad_id, telefono, email) VALUES\n('MED001', 'CMP-12345',
+      'Juan Carlos', 'García', 'López', 1, '999888777', 'jgarcia@consultamedica.local');\n\n--
+      Insertar paciente de ejemplo\nINSERT INTO pacientes (numero_historia, tipo_documento,
+      numero_documento, nombres, apellido_paterno, apellido_materno, fecha_nacimiento,
+      sexo, direccion, telefono) VALUES\n('HC-000001', 'DNI', '12345678', 'María Elena',
+      'Rodríguez', 'Sánchez', '1985-03-15', 'F', 'Av. Principal 123', '987654321');\n"
+  immutable: false
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2026-02-17T02:19:12Z"
+    name: mysql-init-sql
+    namespace: consulta-medica
+    resourceVersion: "20927"
+    uid: 2ae03103-9484-410a-9c90-d5f231e2cc3a
+kind: List
+metadata:
+  resourceVersion: ""

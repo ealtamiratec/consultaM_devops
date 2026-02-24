@@ -1,0 +1,9 @@
+NAME                                 READY   STATUS      RESTARTS   AGE     IP           NODE             NOMINATED NODE   READINESS GATES
+consulta-medica-5bc447966b-fbqr5     1/1     Running     0          21h     10.1.0.166   docker-desktop   <none>           <none>
+docker-registry-769b45886b-vvmdk     1/1     Running     0          6d21h   10.1.0.125   docker-desktop   <none>           <none>
+grafana-5d77dd9f8-s272k              1/1     Running     0          6d21h   10.1.0.122   docker-desktop   <none>           <none>
+jenkins-5bdcb97494-mv4tt             1/1     Running     0          5d20h   10.1.0.141   docker-desktop   <none>           <none>
+kube-state-metrics-8df5dffbd-wvzs7   1/1     Running     0          5d17h   10.1.0.147   docker-desktop   <none>           <none>
+mysql-7cbddc954f-xp4fb               1/1     Running     0          6d21h   10.1.0.124   docker-desktop   <none>           <none>
+mysql-seed-w2n78                     0/1     Completed   0          6d17h   10.1.0.130   docker-desktop   <none>           <none>
+prometheus-5448858fbc-frdfs          1/1     Running     0          3d      10.1.0.165   docker-desktop   <none>           <none>

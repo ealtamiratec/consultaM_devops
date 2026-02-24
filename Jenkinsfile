@@ -34,7 +34,6 @@ pipeline {
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
         timeout(time: 1, unit: 'HOURS')
-        timestamps()
     }
 
     stages {
@@ -44,7 +43,7 @@ pipeline {
             }
         }
 
-        stage('Validaciones básicas') {
+        stage('ValidacionesBasicas') {
             steps {
                 sh '''
                     set -e
@@ -54,7 +53,7 @@ pipeline {
             }
         }
 
-        stage('Build + Tag imagen') {
+        stage('BuildTagImagen') {
             steps {
                 script {
                     env.SHORT_SHA = sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()
@@ -80,7 +79,7 @@ pipeline {
             }
         }
 
-        stage('Push imagen') {
+        stage('PushImagen') {
             steps {
                 script {
                     if (params.REGISTRY_TARGET == 'dockerhub') {
@@ -104,7 +103,7 @@ pipeline {
             }
         }
 
-        stage('Deploy Kubernetes (solo app)') {
+        stage('DeployKubernetes') {
             steps {
                 sh '''
                     set -e
@@ -115,7 +114,7 @@ pipeline {
             }
         }
 
-        stage('Verificación app') {
+        stage('VerificacionApp') {
             steps {
                 sh '''
                     set -e

@@ -1,0 +1,6 @@
+grafana_search:
+[{"id":2,"uid":"pods-consulta-mysql","orgId":1,"title":"Pods Monitor - Consulta Medica y MySQL","uri":"db/pods-monitor-consulta-medica-y-mysql","url":"/d/pods-consulta-mysql/pods-monitor-consulta-medica-y-mysql","slug":"","type":"dash-db","tags":[],"isStarred":false,"sortMeta":0,"isDeleted":false}]
+prom_targets_count:
+6
+prom_alerts_sample:
+{"status":"success","data":{"alerts":[]}}

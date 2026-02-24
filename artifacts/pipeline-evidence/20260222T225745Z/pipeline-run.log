@@ -1,0 +1,123 @@
+PIPELINE_EVIDENCE_TS=20260222T225745Z
+IMAGE_TAG=evid-20260222T225745Z
+=== STAGE: BUILD ===
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.70kB 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/php:8.0-apache
+#2 DONE 0.1s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/9] FROM docker.io/library/php:8.0-apache@sha256:c87b4c94d53b35520467b6d026f38656ab9a6d446fa3a0fbba1bc633125f9ad2
+#4 resolve docker.io/library/php:8.0-apache@sha256:c87b4c94d53b35520467b6d026f38656ab9a6d446fa3a0fbba1bc633125f9ad2 0.0s done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 8.02kB 0.0s done
+#5 DONE 0.0s
+
+#6 [2/9] RUN apt-get update && apt-get install -y     libonig-dev     pkg-config     curl     git     && rm -rf /var/lib/apt/lists/*
+#6 CACHED
+
+#7 [3/9] RUN docker-php-ext-install pdo pdo_mysql mbstring
+#7 CACHED
+
+#8 [4/9] COPY ./app/consulta_medica /var/www/html/
+#8 DONE 0.1s
+
+#9 [5/9] RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf     && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+#9 DONE 0.5s
+
+#10 [6/9] RUN a2enmod rewrite
+#10 0.243 Enabling module rewrite.
+#10 0.257 To activate the new configuration, you need to run:
+#10 0.257   service apache2 restart
+#10 DONE 0.3s
+
+#11 [7/9] RUN mkdir -p /var/www/html/logs
+#11 DONE 0.2s
+
+#12 [8/9] RUN chown -R www-data:www-data /var/www/html/ && chmod -R 755 /var/www/html/
+#12 DONE 0.2s
+
+#13 [9/9] RUN echo '<?php echo json_encode(["status" => "UP", "timestamp" => date("Y-m-d H:i:s")]); ?>' > /var/www/html/public/health.php
+#13 DONE 0.1s
+
+#14 exporting to image
+#14 exporting layers 0.1s done
+#14 exporting manifest sha256:7676dd2bac0dca8150ddd81d8ee5e68fc61c2ded49f4f06099a44076529d96c5 done
+#14 exporting config sha256:4e513999fcb4e317dd7df94404756cbc9356c37d886e9a6cb493b999737f9505
+#14 exporting config sha256:4e513999fcb4e317dd7df94404756cbc9356c37d886e9a6cb493b999737f9505 done
+#14 exporting attestation manifest sha256:49e954b38c7fb2592b4bf1b92d6bb1a5cd494137409f20875455be92087ed6c5 0.0s done
+#14 exporting manifest list sha256:12337f76112f52f8f4b7e1b73bd362346cb4ed2707a8ab988209fc95e96bdddb done
+#14 naming to docker.io/library/consulta-medica:evid-20260222T225745Z done
+#14 unpacking to docker.io/library/consulta-medica:evid-20260222T225745Z 0.1s done
+#14 DONE 0.2s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/sth2kt6vagb0kojz2tx12ncmf
+=== STAGE: TEST ===
+No syntax errors detected in app/consulta_medica/core/Validator.php
+No syntax errors detected in app/consulta_medica/core/Controller.php
+No syntax errors detected in app/consulta_medica/core/Database.php
+No syntax errors detected in app/consulta_medica/core/Session.php
+No syntax errors detected in app/consulta_medica/core/Model.php
+No syntax errors detected in app/consulta_medica/core/bootstrap.php
+No syntax errors detected in app/consulta_medica/core/Router.php
+No syntax errors detected in app/consulta_medica/core/Security.php
+No syntax errors detected in app/consulta_medica/app/models/SignosVitales.php
+No syntax errors detected in app/consulta_medica/app/models/Especialidad.php
+No syntax errors detected in app/consulta_medica/app/models/Usuario.php
+No syntax errors detected in app/consulta_medica/app/models/Paciente.php
+No syntax errors detected in app/consulta_medica/app/models/Medico.php
+No syntax errors detected in app/consulta_medica/app/models/Consulta.php
+No syntax errors detected in app/consulta_medica/app/controllers/ConsultaController.php
+No syntax errors detected in app/consulta_medica/app/controllers/EspecialidadController.php
+No syntax errors detected in app/consulta_medica/app/controllers/ApiController.php
+No syntax errors detected in app/consulta_medica/app/controllers/PacienteController.php
+No syntax errors detected in app/consulta_medica/app/controllers/DashboardController.php
+No syntax errors detected in app/consulta_medica/app/controllers/AuthController.php
+No syntax errors detected in app/consulta_medica/app/controllers/MedicoController.php
+No syntax errors detected in app/consulta_medica/app/views/consultas/index.php
+No syntax errors detected in app/consulta_medica/app/views/consultas/show.php
+No syntax errors detected in app/consulta_medica/app/views/consultas/create.php
+No syntax errors detected in app/consulta_medica/app/views/consultas/edit.php
+No syntax errors detected in app/consulta_medica/app/views/auth/login.php
+No syntax errors detected in app/consulta_medica/app/views/pacientes/index.php
+No syntax errors detected in app/consulta_medica/app/views/pacientes/show.php
+No syntax errors detected in app/consulta_medica/app/views/pacientes/create.php
+No syntax errors detected in app/consulta_medica/app/views/pacientes/edit.php
+No syntax errors detected in app/consulta_medica/app/views/medicos/index.php
+No syntax errors detected in app/consulta_medica/app/views/medicos/show.php
+No syntax errors detected in app/consulta_medica/app/views/medicos/create.php
+No syntax errors detected in app/consulta_medica/app/views/medicos/edit.php
+No syntax errors detected in app/consulta_medica/app/views/especialidades/index.php
+No syntax errors detected in app/consulta_medica/app/views/especialidades/create.php
+No syntax errors detected in app/consulta_medica/app/views/especialidades/edit.php
+No syntax errors detected in app/consulta_medica/app/views/dashboard/index.php
+No syntax errors detected in app/consulta_medica/app/views/layouts/main.php
+No syntax errors detected in app/consulta_medica/app/views/errors/404.php
+No syntax errors detected in app/consulta_medica/app/views/errors/500.php
+No syntax errors detected in app/consulta_medica/config/app.php
+No syntax errors detected in app/consulta_medica/config/database.php
+No syntax errors detected in app/consulta_medica/config/routes.php
+No syntax errors detected in app/consulta_medica/public/index.php
+smoke_http_status=302
+=== STAGE: PACKAGE ===
+image_id=sha256:12337f76112f52f8f4b7e1b73bd362346cb4ed2707a8ab988209fc95e96bdddb
+created=2026-02-22T22:57:47.079564376Z
+=== STAGE: DEPLOY ===
+deployment.apps/consulta-medica image updated
+Waiting for deployment "consulta-medica" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "consulta-medica" rollout to finish: 1 old replicas are pending termination...
+deployment "consulta-medica" successfully rolled out
+deployed_image=consulta-medica:evid-20260222T225745Z
+NAME                               READY   STATUS        RESTARTS   AGE    IP           NODE             NOMINATED NODE   READINESS GATES
+consulta-medica-5bc447966b-fbqr5   1/1     Running       0          12s    10.1.0.166   docker-desktop   <none>           <none>
+consulta-medica-699df577b5-m9wxj   1/1     Terminating   0          2d3h   10.1.0.164   docker-desktop   <none>           <none>
+=== STAGE: DONE ===

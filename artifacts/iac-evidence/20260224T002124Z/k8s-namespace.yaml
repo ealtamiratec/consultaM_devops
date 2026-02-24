@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  creationTimestamp: "2026-02-16T22:41:19Z"
+  labels:
+    kubernetes.io/metadata.name: consulta-medica
+  name: consulta-medica
+  resourceVersion: "1049"
+  uid: eaafa8f7-a0b0-46a8-83c3-e40c539f1288
+spec:
+  finalizers:
+  - kubernetes
+status:
+  phase: Active

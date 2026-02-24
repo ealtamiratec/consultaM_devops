@@ -1,0 +1,6 @@
+Terraform v1.14.4
+on darwin_arm64
++ provider registry.terraform.io/hashicorp/kubernetes v2.38.0
+
+Your version of Terraform is out of date! The latest version
+is 1.14.5. You can update by downloading from https://developer.hashicorp.com/terraform/install

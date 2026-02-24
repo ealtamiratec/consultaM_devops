@@ -1,0 +1,190 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    creationTimestamp: "2026-02-16T22:41:22Z"
+    name: consulta-medica
+    namespace: consulta-medica
+    resourceVersion: "1090"
+    uid: 6020bddf-e96c-403e-b9a9-3a450b10f988
+  spec:
+    allocateLoadBalancerNodePorts: true
+    clusterIP: 10.106.47.204
+    clusterIPs:
+    - 10.106.47.204
+    externalTrafficPolicy: Cluster
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - nodePort: 32656
+      port: 80
+      protocol: TCP
+      targetPort: 80
+    selector:
+      app: consulta-medica
+    sessionAffinity: None
+    type: LoadBalancer
+  status:
+    loadBalancer:
+      ingress:
+      - hostname: localhost
+- apiVersion: v1
+  kind: Service
+  metadata:
+    creationTimestamp: "2026-02-16T22:41:22Z"
+    name: mysql
+    namespace: consulta-medica
+    resourceVersion: "1053"
+    uid: a8624dfb-09f3-4e48-89f2-9153cdb674d1
+  spec:
+    clusterIP: None
+    clusterIPs:
+    - None
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - port: 3306
+      protocol: TCP
+      targetPort: 3306
+    selector:
+      app: mysql
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    creationTimestamp: "2026-02-16T22:41:22Z"
+    name: prometheus
+    namespace: consulta-medica
+    resourceVersion: "1089"
+    uid: 0a893e33-1339-4e8b-bfa9-63147888ff51
+  spec:
+    allocateLoadBalancerNodePorts: true
+    clusterIP: 10.109.253.241
+    clusterIPs:
+    - 10.109.253.241
+    externalTrafficPolicy: Cluster
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - nodePort: 30806
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+    selector:
+      app: prometheus
+    sessionAffinity: None
+    type: LoadBalancer
+  status:
+    loadBalancer:
+      ingress:
+      - hostname: localhost
+- apiVersion: v1
+  kind: Service
+  metadata:
+    creationTimestamp: "2026-02-16T22:41:22Z"
+    name: grafana
+    namespace: consulta-medica
+    resourceVersion: "1115"
+    uid: 4af11abc-dfdc-4d03-8477-67472deea031
+  spec:
+    allocateLoadBalancerNodePorts: true
+    clusterIP: 10.96.10.102
+    clusterIPs:
+    - 10.96.10.102
+    externalTrafficPolicy: Cluster
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - nodePort: 30111
+      port: 3000
+      protocol: TCP
+      targetPort: 3000
+    selector:
+      app: grafana
+    sessionAffinity: None
+    type: LoadBalancer
+  status:
+    loadBalancer:
+      ingress:
+      - hostname: localhost
+- apiVersion: v1
+  kind: Service
+  metadata:
+    creationTimestamp: "2026-02-16T22:41:22Z"
+    name: jenkins
+    namespace: consulta-medica
+    resourceVersion: "1086"
+    uid: 05a15a9c-7146-4b0d-a614-692f77022a4d
+  spec:
+    allocateLoadBalancerNodePorts: true
+    clusterIP: 10.107.171.6
+    clusterIPs:
+    - 10.107.171.6
+    externalTrafficPolicy: Cluster
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: http
+      nodePort: 32439
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    - name: jnlp
+      nodePort: 30921
+      port: 50000
+      protocol: TCP
+      targetPort: 50000
+    selector:
+      app: jenkins
+    sessionAffinity: None
+    type: LoadBalancer
+  status:
+    loadBalancer:
+      ingress:
+      - hostname: localhost
+- apiVersion: v1
+  kind: Service
+  metadata:
+    creationTimestamp: "2026-02-16T23:34:36Z"
+    name: docker-registry
+    namespace: consulta-medica
+    resourceVersion: "7051"
+    uid: d10d27f7-56c5-46c1-af43-961cc1869eca
+  spec:
+    allocateLoadBalancerNodePorts: true
+    clusterIP: 10.106.231.18
+    clusterIPs:
+    - 10.106.231.18
+    externalTrafficPolicy: Cluster
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - nodePort: 32473
+      port: 5000
+      protocol: TCP
+      targetPort: 5000
+    selector:
+      app: docker-registry
+    sessionAffinity: None
+    type: LoadBalancer
+  status:
+    loadBalancer: {}
+kind: List
+metadata:
+  resourceVersion: ""

@@ -1,0 +1,4 @@
+NAME                  STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+docker-registry-pvc   Bound    pvc-a5845259-1b05-4c93-ad58-120fc5b5b754   20Gi       RWO            hostpath       <unset>                 6d21h
+jenkins-pvc           Bound    pvc-9353e60f-da50-4c07-a298-08fad87fb344   20Gi       RWO            hostpath       <unset>                 6d21h
+mysql-pvc             Bound    pvc-7ba18f0b-4226-4f14-87a6-dfabab116029   10Gi       RWO            hostpath       <unset>                 6d21h

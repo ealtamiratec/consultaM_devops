@@ -1,0 +1,15 @@
+
+# Validación URLs externas
+Mon Feb 23 20:04:47 UTC 2026
+
+## Jenkins
+200
+
+## Grafana
+302
+
+## Prometheus
+200
+
+## Docker Registry API
+403

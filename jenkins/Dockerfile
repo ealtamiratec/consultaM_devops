@@ -46,4 +46,15 @@ RUN ARCH="$(dpkg --print-architecture)" \
     && chmod +x /usr/local/bin/terraform \
     && rm -f /tmp/terraform.zip
 
+RUN jenkins-plugin-cli --plugins \
+    workflow-aggregator \
+    workflow-job \
+    workflow-cps \
+    pipeline-stage-view \
+    timestamper \
+    git \
+    github \
+    credentials-binding \
+    docker-workflow
+
 USER jenkins

@@ -1,0 +1,5 @@
+28:variable "namespace" {
+46:variable "app_replicas" {
+52:variable "service_type" {
+64:variable "db_name" {
+69:variable "db_user" {

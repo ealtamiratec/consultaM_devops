@@ -1,0 +1,13 @@
+old_pod=prometheus-5fc6489f97-d49mn
+2026-02-20T19:07:06Z app=302 prom=000 grafana=200 pod=prometheus-5fc6489f97-d49mn
+2026-02-20T19:07:08Z app=302 prom=200 grafana=200 pod=prometheus-5fc6489f97-w9525
+recovery_seconds=2
+start=2026-02-20T19:07:06Z
+end=2026-02-20T19:07:08Z
+new_pod=prometheus-5fc6489f97-w9525
+recovered=true
+NAME              READY   DESIRED
+prometheus        1       1
+consulta-medica   1       1
+mysql             1       1
+grafana           1       1

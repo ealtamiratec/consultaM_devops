@@ -1,0 +1,8 @@
+NAME                 TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                          AGE     SELECTOR
+consulta-medica      LoadBalancer   10.106.47.204    localhost     80:32656/TCP                     7d1h    app=consulta-medica
+docker-registry      LoadBalancer   10.106.231.18    <pending>     5000:32473/TCP                   7d1h    app=docker-registry
+grafana              LoadBalancer   10.96.10.102     localhost     3000:30111/TCP                   7d1h    app=grafana
+jenkins              LoadBalancer   10.107.171.6     localhost     8080:32439/TCP,50000:30921/TCP   7d1h    app=jenkins
+kube-state-metrics   ClusterIP      10.100.194.238   <none>        8080/TCP                         5d21h   app=kube-state-metrics
+mysql                ClusterIP      None             <none>        3306/TCP                         7d1h    app=mysql
+prometheus           LoadBalancer   10.109.253.241   localhost     9090:30806/TCP                   7d1h    app=prometheus

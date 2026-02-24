@@ -1,0 +1,95 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    annotations:
+      pv.kubernetes.io/bind-completed: "yes"
+      pv.kubernetes.io/bound-by-controller: "yes"
+      volume.beta.kubernetes.io/storage-provisioner: docker.io/hostpath
+      volume.kubernetes.io/storage-provisioner: docker.io/hostpath
+    creationTimestamp: "2026-02-16T22:41:22Z"
+    finalizers:
+    - kubernetes.io/pvc-protection
+    name: mysql-pvc
+    namespace: consulta-medica
+    resourceVersion: "1066"
+    uid: 7ba18f0b-4226-4f14-87a6-dfabab116029
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 10Gi
+    storageClassName: hostpath
+    volumeMode: Filesystem
+    volumeName: pvc-7ba18f0b-4226-4f14-87a6-dfabab116029
+  status:
+    accessModes:
+    - ReadWriteOnce
+    capacity:
+      storage: 10Gi
+    phase: Bound
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    annotations:
+      pv.kubernetes.io/bind-completed: "yes"
+      pv.kubernetes.io/bound-by-controller: "yes"
+      volume.beta.kubernetes.io/storage-provisioner: docker.io/hostpath
+      volume.kubernetes.io/storage-provisioner: docker.io/hostpath
+    creationTimestamp: "2026-02-16T22:41:22Z"
+    finalizers:
+    - kubernetes.io/pvc-protection
+    name: jenkins-pvc
+    namespace: consulta-medica
+    resourceVersion: "1108"
+    uid: 9353e60f-da50-4c07-a298-08fad87fb344
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 20Gi
+    storageClassName: hostpath
+    volumeMode: Filesystem
+    volumeName: pvc-9353e60f-da50-4c07-a298-08fad87fb344
+  status:
+    accessModes:
+    - ReadWriteOnce
+    capacity:
+      storage: 20Gi
+    phase: Bound
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    annotations:
+      pv.kubernetes.io/bind-completed: "yes"
+      pv.kubernetes.io/bound-by-controller: "yes"
+      volume.beta.kubernetes.io/storage-provisioner: docker.io/hostpath
+      volume.kubernetes.io/storage-provisioner: docker.io/hostpath
+    creationTimestamp: "2026-02-16T22:41:22Z"
+    finalizers:
+    - kubernetes.io/pvc-protection
+    name: docker-registry-pvc
+    namespace: consulta-medica
+    resourceVersion: "1099"
+    uid: a5845259-1b05-4c93-ad58-120fc5b5b754
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 20Gi
+    storageClassName: hostpath
+    volumeMode: Filesystem
+    volumeName: pvc-a5845259-1b05-4c93-ad58-120fc5b5b754
+  status:
+    accessModes:
+    - ReadWriteOnce
+    capacity:
+      storage: 20Gi
+    phase: Bound
+kind: List
+metadata:
+  resourceVersion: ""
